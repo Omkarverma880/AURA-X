@@ -8,29 +8,36 @@ import { softDotTexture } from "./softDot";
 /**
  * The dais the glass ball rests on.
  *
- * Geometry note: the ring has radius 2.6 centred on the origin, so its lowest
- * point is y = -2.6. The top tier's surface therefore has to sit just below
- * that (-2.65) for the ball to *rest on* the dais. Earlier the tiers were up
- * at -1.5, which put the podium a full unit inside the sphere - the ring cut
- * straight through the discs instead of standing on them.
+ * Geometry note - the tilt matters. The ring has radius 2.6, but AuraOrb
+ * tilts it 0.5 rad about X, so a point at ring angle t sits at
+ * y = 2.6 * sin(t) * cos(0.5). Its lowest point is therefore
+ * -2.6 * cos(0.5) = -2.282, NOT -2.6. Positioning the top tier for an
+ * untilted ring left the ring visibly floating ~0.39 units above the dais.
+ * RING_LOW below is derived rather than hard-coded so the two cannot drift
+ * apart again if the tilt is ever changed.
  *
  * The tiers are unlit on purpose: a lit metal under the warm key light plus
  * ACES tone mapping plus bloom kept returning a brass wash no matter how it
  * was tuned. Unlit means they are exactly this dark navy, always, and every
  * bit of warmth comes from the rim rings.
  */
+/** Ring tilt, in radians - must match the rotation applied in AuraOrb. */
+const RING_TILT = 0.5;
+/** World-space y of the lowest point of the tilted ring. */
+const RING_LOW = -2.6 * Math.cos(RING_TILT);
+
 export function AuraPedestal() {
   const core = useRef<THREE.Mesh>(null);
 
   const tiers = useMemo(
     () => [
-      // y is the centre; each tier's top is height/2 above it. Tops are
-      // spaced closer than the heights, so consecutive tiers overlap and
-      // leave no gap between steps.
-      { radius: 1.9, height: 0.24, y: -2.79 },
-      { radius: 2.4, height: 0.24, y: -2.97 },
-      { radius: 2.9, height: 0.22, y: -3.14 },
-      { radius: 3.4, height: 0.2, y: -3.3 },
+      // y is the centre, offset down from RING_LOW so the top tier's surface
+      // meets the bottom of the ring exactly. Tops are spaced closer than the
+      // heights, so consecutive tiers overlap and leave no gap between steps.
+      { radius: 1.9, height: 0.24, y: RING_LOW - 0.12 },
+      { radius: 2.4, height: 0.24, y: RING_LOW - 0.3 },
+      { radius: 2.9, height: 0.22, y: RING_LOW - 0.47 },
+      { radius: 3.4, height: 0.2, y: RING_LOW - 0.63 },
     ],
     [],
   );
@@ -70,7 +77,7 @@ export function AuraPedestal() {
       {/* Where the ball meets the dais: a warm pool of contact light.
           Textured with the soft radial sprite - an untextured circle renders
           as a flat opaque gold plate, which is exactly what it looked like. */}
-      <mesh ref={core} position={[0, -2.65, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh ref={core} position={[0, RING_LOW + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[3.4, 3.4]} />
         <meshBasicMaterial
           map={softDotTexture()}
@@ -87,7 +94,7 @@ export function AuraPedestal() {
           a second time into a 1024px target every frame, which was the single
           largest cost here and the main source of the stutter. The fog and
           vignette carry the depth instead. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.42, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, RING_LOW - 0.75, 0]}>
         <planeGeometry args={[40, 40]} />
         <meshBasicMaterial color="#04050a" />
       </mesh>
