@@ -1,0 +1,18 @@
+# Railway deployment configuration.
+#
+# One service builds and runs the Dockerfile at the repo root, which produces
+# a single container serving both the API (/api/v1/...) and the built React
+# SPA (everything else). Add a Railway PostgreSQL plugin to the same project
+# and Railway injects DATABASE_URL automatically - app/core/config.py
+# normalises postgres:// to the psycopg3 driver on read, so nothing else
+# needs to change.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

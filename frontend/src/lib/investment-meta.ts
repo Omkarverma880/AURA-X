@@ -1,0 +1,31 @@
+export const ASSET_TYPE_LABELS: Record<string, string> = {
+  stock: "Stocks",
+  mutual_fund: "Mutual Funds",
+  etf: "ETFs",
+  fixed_deposit: "Fixed Deposits",
+  gold: "Gold",
+  nps: "NPS",
+  ppf: "PPF",
+  epf: "EPF",
+  bond: "Bonds",
+  real_estate: "Real Estate",
+  crypto: "Crypto",
+  cash: "Cash",
+  other: "Other",
+};
+
+export const ASSET_TYPE_COLORS: Record<string, string> = {
+  stock: "#7c3aed",
+  mutual_fund: "#0ea5e9",
+  etf: "#0891b2",
+  fixed_deposit: "#64748b",
+  gold: "#d97706",
+  nps: "#16a34a",
+  ppf: "#059669",
+  epf: "#0d9488",
+  bond: "#4f46e5",
+  real_estate: "#b45309",
+  crypto: "#db2777",
+  cash: "#94a3b8",
+  other: "#71717a",
+};
