@@ -7,7 +7,7 @@ import { Input, Label, FieldError, Select } from "@/components/ui/Input";
 import { useAddTransaction } from "@/hooks/useBahiKhata";
 import { useToast } from "@/contexts/ToastContext";
 import { isApiError } from "@/lib/api";
-import type { LedgerEntryDetail } from "@/types";
+import type { LedgerEntry } from "@/types";
 
 const schema = z.object({
   txn_type: z.enum(["repayment", "interest", "write_off"]),
@@ -26,7 +26,9 @@ export function RecordTransactionDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  entry: LedgerEntryDetail;
+  /** Only the summary fields are used, so any list row can open this too -
+   *  it does not need the full detail payload with its transactions. */
+  entry: LedgerEntry;
 }) {
   const { toast } = useToast();
   const addTransaction = useAddTransaction();

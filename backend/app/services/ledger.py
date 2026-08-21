@@ -634,6 +634,110 @@ def add_transaction(
     return txn
 
 
+def record_person_payment(
+    db: Session,
+    user_id: uuid.UUID,
+    person_id: uuid.UUID,
+    data: dict,
+) -> list[LedgerTransaction]:
+    """Settle money against a *person* rather than one specific loan.
+
+    This is how a bahi khata is actually kept: you do not remember which of
+    three loans a repayment belongs to, you just know Rahul handed back 500.
+    The amount is applied oldest debt first, spilling into the next entry when
+    one is cleared, which is the conventional rule for a running account and
+    keeps the oldest udhaar from lingering forever.
+
+    Returns one transaction per entry the payment touched, so a single 1,500
+    against loans of 1,000 and 5,000 produces two rows - the history still
+    says exactly where every rupee went.
+    """
+    person = get_owned(db, Person, person_id, user_id)
+
+    direction = data.get("direction") or LedgerDirection.GIVEN.value
+    if direction not in (LedgerDirection.GIVEN.value, LedgerDirection.BORROWED.value):
+        raise BadRequest("Direction must be 'given' or 'borrowed'.")
+
+    amount = Decimal(str(data["amount"]))
+    if amount <= ZERO:
+        raise BadRequest("Enter an amount greater than zero.")
+
+    txn_type = data.get("txn_type") or LedgerTxnType.REPAYMENT.value
+    if txn_type not in (LedgerTxnType.REPAYMENT.value, LedgerTxnType.WRITE_OFF.value):
+        raise BadRequest("A person-level payment can only be a repayment or a write-off.")
+
+    # Oldest first, with id as a tie-break so two entries dated the same day
+    # always allocate in a stable order.
+    entries = db.execute(
+        owned_query(LedgerEntry, user_id)
+        .where(
+            LedgerEntry.person_id == person.id,
+            LedgerEntry.direction == direction,
+            LedgerEntry.is_closed.is_(False),
+        )
+        .order_by(LedgerEntry.entry_date, LedgerEntry.created_at, LedgerEntry.id)
+    ).scalars().all()
+
+    balances = _entry_balances(db, user_id, person_id=person.id)
+    open_entries = [
+        (entry, balances.get(entry.id, {}).get("outstanding", ZERO))
+        for entry in entries
+    ]
+    open_entries = [(entry, out) for entry, out in open_entries if out > ZERO]
+
+    total_outstanding = sum((out for _, out in open_entries), ZERO)
+    if total_outstanding <= ZERO:
+        raise BadRequest(
+            f"Nothing is outstanding with {person.name}."
+            if direction == LedgerDirection.GIVEN.value
+            else f"You do not owe {person.name} anything.",
+        )
+    if amount > total_outstanding:
+        raise BadRequest(
+            f"That is more than the {total_outstanding} outstanding with {person.name}.",
+            details={"outstanding": float(total_outstanding)},
+        )
+
+    txn_date = data.get("txn_date") or date.today()
+    remaining = amount
+    created: list[LedgerTransaction] = []
+
+    for entry, outstanding in open_entries:
+        if remaining <= ZERO:
+            break
+        applied = min(remaining, outstanding)
+        txn = LedgerTransaction(
+            user_id=user_id,
+            entry_id=entry.id,
+            person_id=person.id,
+            txn_type=txn_type,
+            amount=applied,
+            txn_date=txn_date,
+            method=data.get("method"),
+            description=data.get("description"),
+        )
+        db.add(txn)
+        created.append(txn)
+        remaining -= applied
+
+    db.flush()
+    audit.record(
+        db,
+        user_id=user_id,
+        action=AuditAction.CREATE.value,
+        entity_type="ledger_person",
+        entity_id=person.id,
+        summary=f"Recorded {txn_type} of {amount} against {person.name}",
+        meta={
+            "amount": str(amount),
+            "type": txn_type,
+            "direction": direction,
+            "entries_touched": [str(t.entry_id) for t in created],
+        },
+    )
+    return created
+
+
 def void_transaction(
     db: Session, user_id: uuid.UUID, txn_id: uuid.UUID, reason: str
 ) -> LedgerTransaction:

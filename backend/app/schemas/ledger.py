@@ -53,6 +53,28 @@ class PersonOut(ORMModel):
     last_activity: date | None = None
 
 
+class PersonPaymentCreate(BaseModel):
+    """Money settled against a person rather than one specific entry.
+
+    ``direction`` says which side is being settled: "given" for money coming
+    back to you, "borrowed" for money you are paying back.
+    """
+
+    amount: PositiveMoney
+    direction: LedgerDirection = LedgerDirection.GIVEN
+    txn_type: LedgerTxnType = LedgerTxnType.REPAYMENT
+    txn_date: date = Field(default_factory=date.today)
+    method: PaymentMethod | None = None
+    description: str | None = Field(default=None, max_length=300)
+
+    @field_validator("txn_date")
+    @classmethod
+    def _not_in_future(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError("A transaction cannot be dated in the future.")
+        return v
+
+
 class TransactionCreate(BaseModel):
     txn_type: LedgerTxnType = LedgerTxnType.REPAYMENT
     amount: PositiveMoney

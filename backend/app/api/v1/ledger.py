@@ -22,6 +22,7 @@ from app.schemas.ledger import (
     LedgerSummary,
     PersonCreate,
     PersonDetail,
+    PersonPaymentCreate,
     PersonOut,
     PersonUpdate,
     TransactionCreate,
@@ -85,6 +86,30 @@ def delete_person(person_id: uuid.UUID, db: DbSession, ctx: CurrentAuth) -> Mess
 
 
 # --- Entries -----------------------------------------------------------
+
+
+@router.post(
+    "/people/{person_id}/payments",
+    response_model=PersonDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_person_payment(
+    person_id: uuid.UUID,
+    payload: PersonPaymentCreate,
+    db: DbSession,
+    ctx: CurrentAuth,
+) -> PersonDetail:
+    """Settle money against a person, without naming a specific entry.
+
+    The amount is applied to that person's open entries oldest first - the way
+    a running khata works - so the caller only has to know who paid and how
+    much.
+    """
+    service.record_person_payment(db, ctx.user_id, person_id, payload.model_dump())
+    db.commit()
+    return PersonDetail.model_validate(
+        service.get_person_detail(db, ctx.user_id, person_id)
+    )
 
 
 @router.get("/entries", response_model=Page[EntryOut])

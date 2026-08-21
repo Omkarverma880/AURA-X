@@ -175,6 +175,30 @@ export function useAddTransaction() {
   });
 }
 
+export interface PersonPaymentInput {
+  personId: string;
+  amount: number;
+  direction?: "given" | "borrowed";
+  txn_date?: string;
+  method?: string;
+  description?: string;
+}
+
+/** Settle money against a person; the server allocates it oldest debt first. */
+export function useRecordPersonPayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ personId, ...input }: PersonPaymentInput) => {
+      const { data } = await api.post<PersonDetail>(
+        `/bahi-khata/people/${personId}/payments`,
+        input,
+      );
+      return data;
+    },
+    onSuccess: () => invalidateAll(queryClient),
+  });
+}
+
 export function useSettleEntry() {
   const queryClient = useQueryClient();
   return useMutation({

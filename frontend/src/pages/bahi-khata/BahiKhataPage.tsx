@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, HandCoins, Wallet, TrendingDown, TrendingUp, BookOpenText } from "lucide-react";
+import { Plus, Search, HandCoins, Wallet, TrendingDown, TrendingUp, BookOpenText, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -12,6 +12,8 @@ import { SkeletonList } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/shared/StatCard";
 import { CurrencyDisplay } from "@/components/shared/CurrencyDisplay";
 import { AddEntryDialog } from "@/components/bahi-khata/AddEntryDialog";
+import { RecordTransactionDialog } from "@/components/bahi-khata/RecordTransactionDialog";
+import { RecordPersonPaymentDialog } from "@/components/bahi-khata/RecordPersonPaymentDialog";
 import { useEntries, useLedgerSummary, usePeople } from "@/hooks/useBahiKhata";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -25,6 +27,11 @@ export function BahiKhataPage() {
   const [direction, setDirection] = useState<"" | "given" | "borrowed">("");
   const [addOpen, setAddOpen] = useState(false);
   const [addDirection, setAddDirection] = useState<"given" | "borrowed">("given");
+  // Recording a repayment used to live only on the entry detail page, three
+  // clicks from here - so money coming back in was easy to miss entirely.
+  const [recordFor, setRecordFor] = useState<LedgerEntry | null>(null);
+  // Settling against a person, not a loan - the way a khata is actually kept.
+  const [payPerson, setPayPerson] = useState<{ person: Person; direction: "given" | "borrowed" } | null>(null);
 
   const { data: summary } = useLedgerSummary();
   const { data: people, isLoading: peopleLoading } = usePeople({ search: search || undefined });
@@ -102,12 +109,33 @@ export function BahiKhataPage() {
       </div>
 
       {tab === "people" ? (
-        <PeopleGrid loading={peopleLoading} people={people} />
+        <PeopleGrid loading={peopleLoading} people={people} onPay={(person, direction) => setPayPerson({ person, direction })} />
       ) : (
-        <EntriesList loading={entriesLoading} entries={entries?.items} />
+        <EntriesList loading={entriesLoading} entries={entries?.items} onRecord={setRecordFor} />
       )}
 
       <AddEntryDialog open={addOpen} onClose={() => setAddOpen(false)} defaultDirection={addDirection} />
+      {payPerson && (
+        <RecordPersonPaymentDialog
+          open
+          onClose={() => setPayPerson(null)}
+          personId={payPerson.person.id}
+          personName={payPerson.person.name}
+          direction={payPerson.direction}
+          outstanding={
+            payPerson.direction === "given"
+              ? payPerson.person.outstanding_receivable
+              : payPerson.person.outstanding_payable
+          }
+        />
+      )}
+      {recordFor && (
+        <RecordTransactionDialog
+          open
+          onClose={() => setRecordFor(null)}
+          entry={recordFor}
+        />
+      )}
     </div>
   );
 }
@@ -126,7 +154,15 @@ function Select({ value, onChange }: { value: string; onChange: (v: "" | "given"
   );
 }
 
-function PeopleGrid({ loading, people }: { loading: boolean; people?: Person[] }) {
+function PeopleGrid({
+  loading,
+  people,
+  onPay,
+}: {
+  loading: boolean;
+  people?: Person[];
+  onPay: (person: Person, direction: "given" | "borrowed") => void;
+}) {
   if (loading) {
     return (
       <Card>
@@ -178,6 +214,39 @@ function PeopleGrid({ loading, people }: { loading: boolean; people?: Person[] }
                 <Badge variant="positive">All settled</Badge>
               )}
             </div>
+            {(person.outstanding_receivable > 0 || person.outstanding_payable > 0) && (
+              <div className="mt-3 flex gap-2">
+                {person.outstanding_receivable > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex-1"
+                    // The whole card is a Link; keep the button from navigating.
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onPay(person, "given");
+                    }}
+                  >
+                    <IndianRupee className="h-3.5 w-3.5" /> Received
+                  </Button>
+                )}
+                {person.outstanding_payable > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onPay(person, "borrowed");
+                    }}
+                  >
+                    <IndianRupee className="h-3.5 w-3.5" /> Paid
+                  </Button>
+                )}
+              </div>
+            )}
           </Card>
         </Link>
       ))}
@@ -185,7 +254,15 @@ function PeopleGrid({ loading, people }: { loading: boolean; people?: Person[] }
   );
 }
 
-function EntriesList({ loading, entries }: { loading: boolean; entries?: LedgerEntry[] }) {
+function EntriesList({
+  loading,
+  entries,
+  onRecord,
+}: {
+  loading: boolean;
+  entries?: LedgerEntry[];
+  onRecord: (entry: LedgerEntry) => void;
+}) {
   if (loading) {
     return (
       <Card>
@@ -236,6 +313,21 @@ function EntriesList({ loading, entries }: { loading: boolean; entries?: LedgerE
               {entry.direction === "given" ? "receivable" : "payable"}
             </p>
           </div>
+          {entry.outstanding > 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              // The row is a Link, so keep the click from navigating away.
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRecord(entry);
+              }}
+            >
+              <IndianRupee className="h-3.5 w-3.5" />
+              {entry.direction === "given" ? "Received" : "Paid"}
+            </Button>
+          )}
         </Link>
       ))}
     </Card>

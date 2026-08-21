@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Phone, Mail, Plus, Archive } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Plus, Archive, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge, statusVariant } from "@/components/ui/Badge";
@@ -9,10 +9,13 @@ import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CurrencyDisplay } from "@/components/shared/CurrencyDisplay";
 import { AddEntryDialog } from "@/components/bahi-khata/AddEntryDialog";
+import { RecordTransactionDialog } from "@/components/bahi-khata/RecordTransactionDialog";
+import { RecordPersonPaymentDialog } from "@/components/bahi-khata/RecordPersonPaymentDialog";
 import { usePersonDetail, useDeletePerson } from "@/hooks/useBahiKhata";
 import { formatDate } from "@/lib/format";
 import { useToast } from "@/contexts/ToastContext";
 import { isApiError } from "@/lib/api";
+import type { LedgerEntry } from "@/types";
 
 export function PersonDetailPage() {
   const { personId } = useParams<{ personId: string }>();
@@ -22,6 +25,8 @@ export function PersonDetailPage() {
   const deletePerson = useDeletePerson();
   const [addOpen, setAddOpen] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [recordFor, setRecordFor] = useState<LedgerEntry | null>(null);
+  const [payDirection, setPayDirection] = useState<"given" | "borrowed" | null>(null);
 
   if (isLoading || !person) {
     return (
@@ -55,9 +60,21 @@ export function PersonDetailPage() {
               </div>
             </div>
           </div>
-          <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4" /> Add
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {person.outstanding_receivable > 0 && (
+              <Button size="sm" variant="secondary" onClick={() => setPayDirection("given")}>
+                <IndianRupee className="h-4 w-4" /> Received
+              </Button>
+            )}
+            {person.outstanding_payable > 0 && (
+              <Button size="sm" variant="secondary" onClick={() => setPayDirection("borrowed")}>
+                <IndianRupee className="h-4 w-4" /> Paid
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" /> Add
+            </Button>
+          </div>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -96,6 +113,21 @@ export function PersonDetailPage() {
                 <p className="text-xs text-[var(--text-tertiary)]">{formatDate(entry.entry_date, "short")}</p>
               </div>
               <CurrencyDisplay value={entry.outstanding} compact clickToUnlock={false} />
+              {entry.outstanding > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  // The row is a Link; don't let the button navigate.
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setRecordFor(entry);
+                  }}
+                >
+                  <IndianRupee className="h-3.5 w-3.5" />
+                  {entry.direction === "given" ? "Received" : "Paid"}
+                </Button>
+              )}
             </Link>
           ))}
         </Card>
@@ -150,6 +182,23 @@ export function PersonDetailPage() {
         </Button>
       </CardContent>
 
+      {payDirection && (
+        <RecordPersonPaymentDialog
+          open
+          onClose={() => setPayDirection(null)}
+          personId={person.id}
+          personName={person.name}
+          direction={payDirection}
+          outstanding={
+            payDirection === "given"
+              ? person.outstanding_receivable
+              : person.outstanding_payable
+          }
+        />
+      )}
+      {recordFor && (
+        <RecordTransactionDialog open onClose={() => setRecordFor(null)} entry={recordFor} />
+      )}
       <AddEntryDialog open={addOpen} onClose={() => setAddOpen(false)} />
 
       <ConfirmDialog
