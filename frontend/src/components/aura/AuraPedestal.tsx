@@ -6,81 +6,90 @@ import * as THREE from "three";
 import { GOLD, GOLD_BRIGHT } from "./AuraOrb";
 
 /**
- * The metallic dais the orb floats above: concentric rings of decreasing
- * presence, lit from a single warm source at their centre.
+ * The machined dais the orb floats above.
+ *
+ * Built as dark metal with thin gold rims, not gold plates. Emissive gold on
+ * the tier *faces* makes the steps merge into one bright mass that reads as a
+ * solid dome the moment bloom touches it - the warmth has to come from the
+ * edges instead, which is also what gives the stepped, turned-metal look.
+ *
+ * Kept narrower than the ring so the orb still dominates the frame.
  */
 export function AuraPedestal({ reflector }: { reflector: boolean }) {
-  const halo = useRef<THREE.Mesh>(null);
+  const core = useRef<THREE.Mesh>(null);
 
-  const rings = useMemo(
+  const tiers = useMemo(
     () => [
-      { radius: 1.9, height: 0.06, y: -1.55, opacity: 0.9 },
-      { radius: 2.3, height: 0.045, y: -1.65, opacity: 0.6 },
-      { radius: 2.7, height: 0.03, y: -1.73, opacity: 0.35 },
-      { radius: 3.15, height: 0.02, y: -1.8, opacity: 0.18 },
+      { radius: 1.55, height: 0.09, y: -1.5 },
+      { radius: 1.95, height: 0.07, y: -1.61 },
+      { radius: 2.4, height: 0.06, y: -1.71 },
+      { radius: 2.9, height: 0.05, y: -1.8 },
     ],
     [],
   );
 
   useFrame((state) => {
-    if (!halo.current) return;
-    // A slow tide in the base glow - the only thing on screen that pulses,
-    // and it takes eleven seconds to do it once.
+    if (!core.current) return;
+    // A slow tide in the light at the base - the only thing on screen that
+    // pulses, and it takes eleven seconds to do it once.
     const t = state.clock.getElapsedTime();
-    const material = halo.current.material as THREE.MeshBasicMaterial;
-    material.opacity = 0.22 + Math.sin(t * 0.57) * 0.06;
+    const material = core.current.material as THREE.MeshBasicMaterial;
+    material.opacity = 0.7 + Math.sin(t * 0.57) * 0.25;
   });
 
   return (
     <group>
-      {rings.map((ring, i) => (
-        <mesh key={i} position={[0, ring.y, 0]}>
-          <cylinderGeometry args={[ring.radius, ring.radius, ring.height, 64]} />
-          <meshStandardMaterial
-            color="#0c0c10"
-            emissive={GOLD}
-            emissiveIntensity={0.18}
-            roughness={0.35}
-            metalness={0.85}
-            transparent
-            opacity={ring.opacity}
-          />
-        </mesh>
+      {tiers.map((tier, i) => (
+        <group key={i} position={[0, tier.y, 0]}>
+          {/* Dark turned metal. Emissive stays near zero on purpose. */}
+          <mesh>
+            <cylinderGeometry args={[tier.radius, tier.radius, tier.height, 72]} />
+            <meshStandardMaterial
+              color="#0a0b10"
+              emissive={GOLD}
+              emissiveIntensity={0.02}
+              roughness={0.28}
+              metalness={0.95}
+            />
+          </mesh>
+
+          {/* The gold rim catching light at each step edge - all of the dais's
+              warmth comes from these, not from the faces. */}
+          <mesh position={[0, tier.height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[tier.radius, 0.006, 12, 96]} />
+            <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.55 - i * 0.09} />
+          </mesh>
+        </group>
       ))}
 
-      {/* Volumetric warmth pooling at the base. */}
-      <mesh ref={halo} position={[0, -1.5, 0.02]}>
-        <circleGeometry args={[2.4, 48]} />
-        <meshBasicMaterial color={GOLD} transparent opacity={0.24} />
-      </mesh>
-
-      <pointLight position={[0, -1.5, 0]} color={GOLD_BRIGHT} intensity={4.5} distance={4.5} />
-      <mesh position={[0, -1.5, 0]}>
-        <sphereGeometry args={[0.08, 16, 16]} />
-        <meshBasicMaterial color={GOLD_BRIGHT} />
+      {/* The warm source at the centre of the dais. */}
+      <pointLight position={[0, -1.4, 0]} color={GOLD_BRIGHT} intensity={1.2} distance={2.6} />
+      <mesh ref={core} position={[0, -1.44, 0]}>
+        <sphereGeometry args={[0.05, 16, 16]} />
+        <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.9} />
       </mesh>
 
       {reflector ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.86, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.84, 0]}>
           <planeGeometry args={[40, 40]} />
           <MeshReflectorMaterial
             blur={[300, 80]}
             resolution={1024}
             mixBlur={1}
-            mixStrength={35}
+            mixStrength={10}
             roughness={0.9}
             depthScale={1}
             minDepthThreshold={0.85}
             color="#030304"
             metalness={0.7}
-            mirror={0.3}
+            mirror={0.25}
           />
         </mesh>
       ) : (
         // The reflector renders the scene a second time into a render target,
         // which is the single most expensive thing here. Low-tier devices get
-        // a plain dark floor instead - the vignette and fog carry the depth.
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.86, 0]}>
+        // a plain dark floor instead - fog and vignette carry the depth.
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.84, 0]}>
           <planeGeometry args={[40, 40]} />
           <meshStandardMaterial color="#050508" roughness={0.8} metalness={0.4} />
         </mesh>

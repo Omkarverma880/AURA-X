@@ -114,11 +114,11 @@ export function AuraOrb({
     <group ref={group} rotation={[0.5, 0, 0]}>
       {/* The ring itself. */}
       <mesh>
-        <torusGeometry args={[2.6, 0.035, 32, tier === "high" ? 200 : 96]} />
+        <torusGeometry args={[2.6, 0.018, 24, tier === "high" ? 220 : 110]} />
         <meshStandardMaterial
           color={GOLD}
           emissive={GOLD_BRIGHT}
-          emissiveIntensity={1.3}
+          emissiveIntensity={0.85}
           roughness={0.25}
           metalness={0.7}
         />
@@ -126,9 +126,15 @@ export function AuraOrb({
 
       {/* Inner disc: barely-there smoked glass so the ring encloses a volume
           rather than framing empty space. */}
-      <mesh position={[0, 0, -0.02]}>
+      <mesh position={[0, 0, -0.04]}>
         <circleGeometry args={[2.58, 64]} />
-        <meshBasicMaterial color="#05060a" transparent opacity={0.55} side={THREE.DoubleSide} />
+        <meshBasicMaterial
+          color="#05060a"
+          transparent
+          opacity={0.16}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
       </mesh>
 
       {/* Energy travelling the rim. */}

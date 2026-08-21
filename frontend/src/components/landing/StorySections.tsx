@@ -26,7 +26,7 @@ function SectionLabel({ index, children }: { index: string; children: React.Reac
 export function WhatIsSection() {
   return (
     <section
-      className="relative px-6 py-28 md:py-36"
+      className="relative overflow-hidden px-6 py-28 md:py-36"
       style={{
         background:
           "linear-gradient(180deg, transparent 0%, rgba(5,5,7,0.72) 26%, rgba(5,5,7,0.92) 100%)",
@@ -114,7 +114,7 @@ const PRIVACY_POINTS = [
 
 export function PrivacySection() {
   return (
-    <section className="relative bg-[#050507] px-6 py-24 md:py-32">
+    <section className="relative overflow-hidden bg-[#050507] px-6 py-24 md:py-32">
       {/* A cold pool of light, to shift the temperature away from gold for the
           one section that is about protection rather than possession. */}
       <div
@@ -150,7 +150,7 @@ export function PrivacySection() {
 
 export function UniverseSection() {
   return (
-    <section className="relative bg-[#050507] px-6 py-24 md:py-32">
+    <section className="relative overflow-hidden bg-[#050507] px-6 py-24 md:py-32">
       <div className="mx-auto max-w-3xl text-center">
         <SectionLabel index="05">One personal universe</SectionLabel>
         <h2 className="aura-reveal text-balance text-3xl font-extralight leading-tight sm:text-4xl">

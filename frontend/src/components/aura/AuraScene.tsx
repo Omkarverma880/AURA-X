@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 
@@ -52,6 +52,32 @@ export function AuraScene() {
   );
 }
 
+/**
+ * Keeps the whole orb in frame on any viewport.
+ *
+ * A perspective camera's `fov` is *vertical*, so the horizontal field of view
+ * shrinks with the aspect ratio. On a 390px-wide phone that put the ring's
+ * left and right edges off screen at the distance that frames it perfectly on
+ * a laptop. Backing the camera off as the viewport narrows keeps the ring's
+ * full diameter visible instead of scaling the desktop composition down.
+ */
+function ResponsiveCamera() {
+  const { camera, size } = useThree();
+
+  useEffect(() => {
+    const aspect = size.width / size.height;
+    // The ring spans ~4.8 units across after the scene's 0.92 scale; leave a
+    // margin so the rim never touches the edge.
+    const needed = 2.9 / Math.tan((45 * Math.PI) / 360);
+    const distance = aspect >= 1 ? 8.9 : 8.9 + (1 / aspect - 1) * needed * 1.35;
+
+    camera.position.set(0, aspect >= 1 ? 0.25 : 0.1, distance);
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height]);
+
+  return null;
+}
+
 function SceneCanvas({
   tier,
   scrollProgress,
@@ -63,7 +89,7 @@ function SceneCanvas({
 
   return (
     <Canvas
-      camera={{ position: [0, 0.4, 7], fov: 45 }}
+      camera={{ position: [0, 0.25, 8.9], fov: 45 }}
       dpr={budget.dpr}
       gl={{ antialias: tier === "high", powerPreference: "high-performance" }}
       // The hero is decorative; stop rendering entirely when the tab is
@@ -74,8 +100,9 @@ function SceneCanvas({
         state.gl.toneMappingExposure = 1.15;
       }}
     >
+      <ResponsiveCamera />
       <color attach="background" args={["#050507"]} />
-      <fog attach="fog" args={["#050507", 8, 17]} />
+      <fog attach="fog" args={["#050507", 10, 21]} />
 
       <ambientLight intensity={0.06} />
       <pointLight position={[4, 3, 4]} intensity={0.18} color={GOLD} />
@@ -83,14 +110,20 @@ function SceneCanvas({
 
       <Suspense fallback={null}>
         <AuraParticles tier={tier} />
-        <AuraOrb tier={tier} scrollProgress={scrollProgress} />
-        <AuraPedestal reflector={budget.reflector} />
+
+        {/* The orb and its dais are lifted and scaled down slightly as a unit
+            so the dais clears the module shelf at the foot of the hero -
+            without this the outermost tier covers the last two modules. */}
+        <group position={[0, 0.42, 0]} scale={0.92}>
+          <AuraOrb tier={tier} scrollProgress={scrollProgress} />
+          <AuraPedestal reflector={budget.reflector} />
+        </group>
 
         {budget.bloom && (
           <EffectComposer>
             <Bloom
-              intensity={tier === "high" ? 0.6 : 0.45}
-              luminanceThreshold={0.32}
+              intensity={tier === "high" ? 0.85 : 0.6}
+              luminanceThreshold={0.62}
               luminanceSmoothing={0.25}
               mipmapBlur
             />
