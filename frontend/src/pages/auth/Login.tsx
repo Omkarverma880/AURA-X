@@ -9,6 +9,7 @@ import { GoogleButton } from "@/components/auth/GoogleButton";
 import { PhoneLoginPanel } from "@/components/auth/PhoneLoginPanel";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthProviders } from "@/hooks/useAuthProviders";
 import { isApiError } from "@/lib/api";
@@ -82,9 +83,8 @@ export function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
                 {...register("password")}
                 error={!!errors.password}

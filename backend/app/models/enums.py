@@ -23,6 +23,7 @@ class StrEnum(str, Enum):
 class AuthProvider(StrEnum):
     PASSWORD = "password"
     GOOGLE = "google"
+    PHONE = "phone"
 
 
 class TokenPurpose(StrEnum):

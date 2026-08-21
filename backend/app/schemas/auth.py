@@ -96,6 +96,9 @@ class PhoneOtpRequest(BaseModel):
 class PhoneLoginRequest(BaseModel):
     phone: str = Field(min_length=8, max_length=20)
     code: str = Field(min_length=4, max_length=8)
+    #: Only used the first time this number signs in, to name the new
+    #: account it creates. Ignored for a number that already has one.
+    full_name: str | None = Field(default=None, max_length=120)
 
 
 class PhoneVerifyRequest(BaseModel):

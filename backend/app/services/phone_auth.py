@@ -7,10 +7,15 @@ attempt-capped so a 6-digit code stays safe against online guessing.
 
 Two purposes share the same table:
 
-* "login"  - proves control of a number that is already attached to an
-  account, and signs the caller in (or, on first use during registration,
-  becomes the account's verified number).
-* "link"   - an authenticated user attaching a new number to their account.
+* "login"  - proves control of a number. Verifying it signs the caller into
+  the account already holding that number, or - like Google sign-in -
+  transparently creates one on first use. This is the standard phone-first
+  pattern (WhatsApp, most Indian/Nepali fintech apps): entering a number
+  always gets a code, and the app itself decides sign-in vs sign-up.
+* "link"   - an already-authenticated user attaching a new number to their
+  account from Settings. That flow still refuses a number already verified
+  on someone else's account, since it is changing an existing identity
+  rather than creating one.
 """
 
 from __future__ import annotations
@@ -25,11 +30,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errors import BadRequest, Conflict, RateLimited, Unauthorized
-from app.models.enums import AuditAction
+from app.models.enums import AuditAction, AuthProvider
 from app.models.user import PhoneOtp, User
 from app.security.tokens import hash_token
 from app.services import audit
-from app.services.auth import start_session  # re-exported for callers
+from app.services.auth import create_user, start_session  # re-exported for callers
 
 PHONE_PATTERN = re.compile(r"^\+[1-9]\d{7,14}$")
 
@@ -117,25 +122,58 @@ def _consume(db: Session, phone: str, code: str, purpose: str) -> PhoneOtp:
     return otp
 
 
-def verify_login_otp(db: Session, phone: str, code: str) -> User:
-    """Verify a login code and return the account behind the number.
+#: Accounts created straight from a phone number get a synthetic address
+#: under a domain the app controls, purely to satisfy User.email's NOT NULL
+#: UNIQUE constraint. It is never used for delivery, and the user can attach
+#: a real e-mail from Settings whenever they choose to.
+#:
+#: Deliberately not one of the IANA special-use TLDs (.local/.internal/
+#: .invalid/...) - Pydantic's EmailStr rejects those outright regardless of
+#: syntax, so a normal-looking subdomain is what actually validates.
+_PHONE_EMAIL_DOMAIN = "phone.aurax.app"
 
-    The phone must already be verified on an existing account: unlike e-mail,
-    a phone number alone is not treated as enough to create a new identity, to
-    avoid throwaway-SIM signups bypassing e-mail verification entirely.
+
+def verify_login_otp(db: Session, phone: str, code: str, *, full_name: str | None = None) -> tuple[User, bool]:
+    """Verify a login/sign-up code.
+
+    Returns ``(user, created)``. A number already verified on an account
+    signs that account in; a number nobody has claimed yet creates a new
+    account on the spot - the same trust model as Google sign-in, where
+    proving control of the identifier *is* the signup step.
     """
+    otp_phone_digits = phone.lstrip("+")
+    _consume(db, phone, code, "login")
+
     user = db.execute(
         select(User).where(User.phone == phone, User.phone_verified.is_(True))
     ).scalar_one_or_none()
-    if user is None:
-        raise Unauthorized(
-            "No verified account uses this phone number.", code="phone_not_registered"
-        )
-    if not user.is_active:
-        raise Unauthorized("This account has been deactivated.", code="account_disabled")
 
-    _consume(db, phone, code, "login")
-    return user
+    if user is not None:
+        if not user.is_active:
+            raise Unauthorized("This account has been deactivated.", code="account_disabled")
+        return user, False
+
+    user = create_user(
+        db,
+        email=f"phone-{otp_phone_digits}@{_PHONE_EMAIL_DOMAIN}",
+        full_name=(full_name or "").strip() or "New User",
+        password=None,
+        provider=AuthProvider.PHONE,
+        provider_account_id=phone,
+        is_verified=False,
+    )
+    user.phone = phone
+    user.phone_verified = True
+    db.flush()
+    audit.record(
+        db,
+        user_id=user.id,
+        action=AuditAction.CREATE.value,
+        entity_type="user",
+        entity_id=user.id,
+        summary="Account created via phone sign-in",
+    )
+    return user, True
 
 
 def start_phone_link(db: Session, user: User, phone: str) -> tuple[str, PhoneOtp]:

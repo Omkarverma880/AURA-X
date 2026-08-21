@@ -6,6 +6,7 @@ import { KeyRound, ShieldCheck, Smartphone, Monitor, LogOut } from "lucide-react
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Badge } from "@/components/ui/Badge";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -66,18 +67,18 @@ function ChangePasswordCard() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <Label htmlFor="current_password">Current password</Label>
-            <Input id="current_password" type="password" {...register("current_password")} error={!!errors.current_password} />
+            <PasswordInput id="current_password" autoComplete="current-password" {...register("current_password")} error={!!errors.current_password} />
             <FieldError>{errors.current_password?.message}</FieldError>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="new_password">New password</Label>
-              <Input id="new_password" type="password" {...register("new_password")} error={!!errors.new_password} />
+              <PasswordInput id="new_password" autoComplete="new-password" {...register("new_password")} error={!!errors.new_password} />
               <FieldError>{errors.new_password?.message}</FieldError>
             </div>
             <div>
               <Label htmlFor="confirm">Confirm</Label>
-              <Input id="confirm" type="password" {...register("confirm")} error={!!errors.confirm} />
+              <PasswordInput id="confirm" autoComplete="new-password" {...register("confirm")} error={!!errors.confirm} />
               <FieldError>{errors.confirm?.message}</FieldError>
             </div>
           </div>

@@ -120,13 +120,14 @@ export function useMonthlySummary(period: string) {
   });
 }
 
-export function useExpenseTrend(months = 12) {
+export function useExpenseTrend(months = 12, enabled = true) {
   return useQuery({
     queryKey: ["expenses", "trend", months],
     queryFn: async () => {
       const { data } = await api.get<TrendPoint[]>("/expenses/trend", { params: { months } });
       return data;
     },
+    enabled,
   });
 }
 

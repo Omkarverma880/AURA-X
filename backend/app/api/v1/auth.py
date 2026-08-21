@@ -284,27 +284,21 @@ def resend_verification(db: DbSession, ctx: CurrentAuth) -> MessageResponse:
 def request_phone_login_otp(
     payload: PhoneOtpRequest, db: DbSession, client: ClientCtx
 ) -> OtpSentResponse:
-    """Send a login code to a phone number already verified on an account.
+    """Send a sign-in code to any valid phone number.
 
-    The response is intentionally generic when the number is not registered,
-    so this endpoint cannot be used to enumerate accounts by phone number.
+    Phone auth is phone-first, the same model Google sign-in already uses for
+    e-mail: proving control of the number is itself enough to sign in *or*
+    create an account, so - unlike the password-reset flow - there is nothing
+    to hide about whether a number is already registered, and a code is
+    always sent.
     """
     phone = phone_auth.normalise_phone(payload.phone)
     rate_limiter.check("phone_otp", f"{client.ip or 'unknown'}:{phone}")
 
-    exists = db.execute(
-        select(User).where(User.phone == phone, User.phone_verified.is_(True))
-    ).scalar_one_or_none()
-    generic = _otp_response(
-        "If that phone number is registered, a verification code has been sent.", None
-    )
-    if exists is None:
-        return generic
-
     code, _ = phone_auth.request_otp(db, phone, "login")
     db.commit()
     sms_service.send_otp(phone, code)
-    return _otp_response(generic.message, code)
+    return _otp_response("A verification code has been sent.", code)
 
 
 @router.post("/phone/login", response_model=AuthResponse)
@@ -315,7 +309,7 @@ def phone_login(
     identifier = f"{client.ip or 'unknown'}:{phone}"
     rate_limiter.check("login", identifier)
 
-    user = phone_auth.verify_login_otp(db, phone, payload.code)
+    user, created = phone_auth.verify_login_otp(db, phone, payload.code, full_name=payload.full_name)
     rate_limiter.reset("login", identifier)
 
     issued = auth_service.start_session(
@@ -324,10 +318,10 @@ def phone_login(
     audit.record(
         db,
         user_id=user.id,
-        action=AuditAction.LOGIN.value,
+        action=(AuditAction.CREATE if created else AuditAction.LOGIN).value,
         entity_type="user",
         entity_id=user.id,
-        summary="Signed in with phone number",
+        summary="Signed up with phone number" if created else "Signed in with phone number",
         ip_address=client.ip,
         user_agent=client.user_agent,
     )

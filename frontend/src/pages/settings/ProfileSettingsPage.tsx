@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { Avatar } from "@/components/ui/Avatar";
+import { PhoneInput } from "@/components/shared/PhoneInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -195,9 +196,9 @@ function PhoneLinkCard() {
             </button>
           </div>
         ) : step === "idle" ? (
-          <div className="flex gap-2">
-            <Input placeholder="+919876543210" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <Button onClick={startLink} loading={requestOtp.isPending}>
+          <div className="space-y-3">
+            <PhoneInput value={phone} onChange={setPhone} />
+            <Button onClick={startLink} loading={requestOtp.isPending} disabled={!phone}>
               <Smartphone className="h-4 w-4" /> Send code
             </Button>
           </div>

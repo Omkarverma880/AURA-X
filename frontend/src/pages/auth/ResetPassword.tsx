@@ -6,7 +6,8 @@ import { z } from "zod";
 import { CheckCircle2 } from "lucide-react";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Button } from "@/components/ui/Button";
-import { Input, Label, FieldError, FieldHint } from "@/components/ui/Input";
+import { Label, FieldError, FieldHint } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { api, isApiError } from "@/lib/api";
 
 const schema = z
@@ -75,13 +76,13 @@ export function ResetPasswordPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <Label htmlFor="password">New password</Label>
-          <Input id="password" type="password" autoComplete="new-password" {...register("password")} error={!!errors.password} />
+          <PasswordInput id="password" autoComplete="new-password" {...register("password")} error={!!errors.password} />
           <FieldHint>At least 8 characters, mixing letters with numbers or symbols.</FieldHint>
           <FieldError>{errors.password?.message}</FieldError>
         </div>
         <div>
           <Label htmlFor="confirm">Confirm new password</Label>
-          <Input id="confirm" type="password" autoComplete="new-password" {...register("confirm")} error={!!errors.confirm} />
+          <PasswordInput id="confirm" autoComplete="new-password" {...register("confirm")} error={!!errors.confirm} />
           <FieldError>{errors.confirm?.message}</FieldError>
         </div>
         {serverError && <p className="text-sm text-[var(--negative)]">{serverError}</p>}

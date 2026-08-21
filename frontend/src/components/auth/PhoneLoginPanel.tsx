@@ -2,16 +2,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input, Label, FieldError, FieldHint } from "@/components/ui/Input";
+import { Label, FieldError, FieldHint, Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/shared/PhoneInput";
 import { api, isApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 
-/** Passwordless sign-in with a phone number already linked in Settings. */
+/** Phone-first sign-in: entering a number always gets a code, and verifying
+ * it either signs in the account already holding that number or creates a
+ * new one on the spot - the same model Google sign-in uses for e-mail. */
 export function PhoneLoginPanel() {
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
+  const [fullName, setFullName] = useState("");
   const [debugCode, setDebugCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,7 +45,7 @@ export function PhoneLoginPanel() {
     setError(null);
     setLoading(true);
     try {
-      await loginWithPhone(phone, code);
+      await loginWithPhone(phone, code, fullName);
       navigate("/dashboard");
     } catch (err) {
       setError(isApiError(err) ? err.message : "That code is not valid.");
@@ -55,14 +59,8 @@ export function PhoneLoginPanel() {
       <div className="space-y-4">
         <div>
           <Label htmlFor="phone">Phone number</Label>
-          <Input
-            id="phone"
-            type="tel"
-            placeholder="+919876543210"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-          <FieldHint>Include the country code, e.g. +91 for India.</FieldHint>
+          <PhoneInput id="phone" value={phone} onChange={setPhone} autoFocus />
+          <FieldHint>New here? We'll set up your account automatically. Your number is only used for sign-in and is never shared.</FieldHint>
           <FieldError>{error ?? undefined}</FieldError>
         </div>
         <Button className="w-full" onClick={requestOtp} loading={loading} disabled={!phone}>
@@ -92,8 +90,16 @@ export function PhoneLoginPanel() {
         )}
         <FieldError>{error ?? undefined}</FieldError>
       </div>
+
+      <div>
+        <Label htmlFor="full_name">
+          Your name <span className="font-normal text-[var(--text-tertiary)]">(only needed for a new number)</span>
+        </Label>
+        <Input id="full_name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+      </div>
+
       <Button className="w-full" onClick={verifyOtp} loading={loading} disabled={code.length !== 6}>
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />} Verify &amp; sign in
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />} Verify &amp; continue
       </Button>
       <button
         type="button"

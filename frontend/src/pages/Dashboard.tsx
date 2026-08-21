@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
 import {
+  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
+} from "recharts";
+import {
   HandCoins,
   Wallet,
   Receipt,
@@ -11,19 +14,29 @@ import {
   Bell,
   Clock,
   Sparkles,
+  Lock,
+  LineChart,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatCard } from "@/components/shared/StatCard";
 import { CurrencyDisplay } from "@/components/shared/CurrencyDisplay";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useExpenseTrend } from "@/hooks/useExpenses";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatDate, formatRelativeTime } from "@/lib/format";
+import { useFinancial } from "@/contexts/FinancialContext";
+import { formatDate, formatMoneyCompact, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ModuleCard } from "@/types";
 import type { LucideIcon } from "lucide-react";
+
+function monthLabel(month: string): string {
+  const [year, m] = month.split("-");
+  return new Date(Number(year), Number(m) - 1, 1).toLocaleDateString("en-US", { month: "short" });
+}
 
 const MODULE_META: Record<string, { icon: LucideIcon; route: string; label: string }> = {
   bahi_khata: { icon: HandCoins, route: "/bahi-khata", label: "Bahi Khata" },
@@ -36,6 +49,8 @@ const MODULE_META: Record<string, { icon: LucideIcon; route: string; label: stri
 export function DashboardPage() {
   const { user } = useAuth();
   const { data, isLoading } = useDashboard();
+  const { isUnlocked, promptUnlock } = useFinancial();
+  const { data: trend } = useExpenseTrend(6, isUnlocked);
 
   if (isLoading || !data) {
     return (
@@ -99,6 +114,68 @@ export function DashboardPage() {
           )}
         </Card>
       )}
+
+      {/* Month-on-month trend */}
+      <div>
+        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
+          <LineChart className="h-4 w-4" /> Income &amp; spending, month on month
+        </h2>
+        {!isUnlocked ? (
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)]">
+                <Lock className="h-5 w-5 text-[var(--brand)]" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Trend is confidential</p>
+                <p className="text-xs text-[var(--text-tertiary)]">Enter your Green PIN to see savings trends.</p>
+              </div>
+            </div>
+            <Button size="sm" onClick={() => promptUnlock()}>Unlock</Button>
+          </Card>
+        ) : trend && trend.length > 0 ? (
+          <Card className="p-5">
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={trend} margin={{ left: -12 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickFormatter={monthLabel}
+                    tick={{ fontSize: 11, fill: "var(--text-tertiary)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => formatMoneyCompact(v)}
+                    tick={{ fontSize: 11, fill: "var(--text-tertiary)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={56}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [formatMoneyCompact(Number(value)), name]}
+                    labelFormatter={(label) => monthLabel(String(label))}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="income" name="Income" fill="var(--positive)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="expenses" name="Expenses" fill="var(--negative)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <Line
+                    type="monotone"
+                    dataKey="savings"
+                    name="Savings"
+                    stroke="var(--brand)"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: "var(--brand)", strokeWidth: 0 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        ) : (
+          <EmptyState icon={LineChart} title="Not enough history yet" description="Log a month of income and expenses to see the trend." />
+        )}
+      </div>
 
       {/* Module cards */}
       <div>

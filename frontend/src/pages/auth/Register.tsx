@@ -7,6 +7,7 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, FieldError, FieldHint } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthProviders } from "@/hooks/useAuthProviders";
 import { isApiError } from "@/lib/api";
@@ -66,9 +67,8 @@ export function RegisterPage() {
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               {...register("password")}
               error={!!errors.password}
@@ -78,9 +78,8 @@ export function RegisterPage() {
           </div>
           <div>
             <Label htmlFor="confirm">Confirm password</Label>
-            <Input
+            <PasswordInput
               id="confirm"
-              type="password"
               autoComplete="new-password"
               {...register("confirm")}
               error={!!errors.confirm}

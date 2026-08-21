@@ -46,12 +46,40 @@ def test_otp_is_single_use(alice, client):
     assert second.json()["error"]["code"] == "otp_expired"
 
 
-def test_phone_login_requires_a_previously_verified_number(client):
-    response = client.post(
-        "/api/v1/auth/phone/login", json={"phone": "+911111111111", "code": "123456"}
+def test_phone_login_creates_an_account_for_a_new_number(client):
+    """Phone auth is phone-first: an unclaimed number signs up, not 401s."""
+    otp = client.post("/api/v1/auth/phone/otp", json={"phone": "+911111111111"})
+    assert otp.status_code == 200
+    code = otp.json()["debug_code"]
+    assert code and len(code) == 6
+
+    login = client.post(
+        "/api/v1/auth/phone/login",
+        json={"phone": "+911111111111", "code": code, "full_name": "Priya Sharma"},
     )
-    assert response.status_code == 401
-    assert response.json()["error"]["code"] == "phone_not_registered"
+    assert login.status_code == 200
+    body = login.json()
+    assert body["user"]["phone"] == "+911111111111"
+    assert body["user"]["phone_verified"] is True
+    assert body["user"]["full_name"] == "Priya Sharma"
+    # A synthetic placeholder, never a delivery address - just satisfies the
+    # NOT NULL/UNIQUE constraint on User.email.
+    assert body["user"]["email"].endswith("@phone.aurax.app")
+
+
+def test_phone_login_signing_in_twice_reuses_the_same_account(client):
+    first_code = client.post("/api/v1/auth/phone/otp", json={"phone": "+911111111111"}).json()["debug_code"]
+    first = client.post(
+        "/api/v1/auth/phone/login", json={"phone": "+911111111111", "code": first_code}
+    ).json()
+
+    client.cookies.clear()
+    second_code = client.post("/api/v1/auth/phone/otp", json={"phone": "+911111111111"}).json()["debug_code"]
+    second = client.post(
+        "/api/v1/auth/phone/login", json={"phone": "+911111111111", "code": second_code}
+    ).json()
+
+    assert first["user"]["id"] == second["user"]["id"]
 
 
 def test_phone_login_end_to_end(alice, client):
@@ -74,13 +102,14 @@ def test_phone_login_end_to_end(alice, client):
     assert me.json()["user"]["phone"] == "+919876543210"
 
 
-def test_phone_otp_for_unregistered_number_returns_generic_response(client):
-    """The public endpoint must not reveal whether a number is registered."""
+def test_phone_otp_is_always_sent(client):
+    """Unlike password reset, the phone endpoint has nothing to hide: it is
+    the sign-up step too, so a code is sent for any valid number."""
     response = client.post("/api/v1/auth/phone/otp", json={"phone": "+911111111111"})
     assert response.status_code == 200
     body = response.json()
-    assert "If that phone number is registered" in body["message"]
-    assert body["debug_code"] is None
+    assert body["debug_code"] is not None
+    assert len(body["debug_code"]) == 6
 
 
 def test_a_phone_number_cannot_be_linked_to_two_accounts(alice, bob, client):
@@ -91,15 +120,19 @@ def test_a_phone_number_cannot_be_linked_to_two_accounts(alice, bob, client):
     assert "already linked" in sent.json()["error"]["message"].lower()
 
 
-def test_unlink_removes_phone_login(alice, client):
+def test_unlink_makes_the_number_available_for_a_new_account(alice, client):
     link_and_verify(alice, client)
     response = alice.delete("/api/v1/users/me/phone")
     assert response.status_code == 200
     assert response.json()["phone"] is None
 
     client.cookies.clear()
-    otp = client.post("/api/v1/auth/phone/otp", json={"phone": "+919876543210"})
-    assert otp.json()["debug_code"] is None  # no longer a registered number
+    code = client.post("/api/v1/auth/phone/otp", json={"phone": "+919876543210"}).json()["debug_code"]
+    login = client.post("/api/v1/auth/phone/login", json={"phone": "+919876543210", "code": code})
+    assert login.status_code == 200
+    # No longer verified on Alice's account, so this now signs up someone new
+    # rather than logging in as her.
+    assert login.json()["user"]["id"] != alice.id
 
 
 def test_resend_before_cooldown_is_rate_limited(alice, client):

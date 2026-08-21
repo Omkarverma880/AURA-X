@@ -28,7 +28,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
-  loginWithPhone: (phone: string, code: string) => Promise<void>;
+  loginWithPhone: (phone: string, code: string, fullName?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   setFinancial: (status: FinancialStatus) => void;
@@ -84,8 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithPhone = useCallback(
-    async (phone: string, code: string) => {
-      const { data } = await api.post<AuthResponse>("/auth/phone/login", { phone, code });
+    async (phone: string, code: string, fullName?: string) => {
+      const { data } = await api.post<AuthResponse>("/auth/phone/login", {
+        phone,
+        code,
+        full_name: fullName || undefined,
+      });
       applyAuthResponse(data);
     },
     [applyAuthResponse],

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, X, ChevronDown, Wallet, PiggyBank, TrendingUp, Target, Mountain, Images } from "lucide-react";
+import { Menu, X, ChevronDown, Wallet, PiggyBank, TrendingUp, Target, Mountain, Images, ShieldCheck } from "lucide-react";
 import { HeroScene } from "@/components/landing/HeroScene";
 
 const MODULES = [
@@ -98,7 +98,12 @@ export function LandingPage() {
             ))}
           </div>
 
-          <div className="mt-10 flex flex-col items-center gap-1.5 text-white/40">
+          <div className="mt-8 flex items-center justify-center gap-1.5 text-[11px] text-white/40">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#e8a83c]/70" />
+            <span>Bank-grade security · TLS-encrypted in transit · Green PIN protected finances</span>
+          </div>
+
+          <div className="mt-6 flex flex-col items-center gap-1.5 text-white/40">
             <ChevronDown className="h-4 w-4 animate-bounce" />
             <span className="text-[11px] uppercase tracking-[0.2em]">Scroll to explore</span>
           </div>
