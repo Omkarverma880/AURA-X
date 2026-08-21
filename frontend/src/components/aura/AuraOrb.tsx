@@ -2,7 +2,6 @@ import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
-import { AuraGlassSphere } from "./AuraGlassSphere";
 import { softDotTexture } from "./softDot";
 import { type AuraTier } from "./useAuraCapabilities";
 
@@ -82,28 +81,15 @@ export function AuraOrb({
 
   return (
     <group ref={group} rotation={[0.5, 0, 0]}>
-      {/* The glass ball the ring encircles - a Fresnel shell, so the middle
-          stays clear and only the silhouette catches light. */}
-      <AuraGlassSphere radius={2.42} />
-
-      {/* The glass rim itself. Thin, bright, unbroken - this is the structure
-          the dust decorates, and the reason the ring reads as an object. */}
+      {/* Exactly one circular edge in the whole composition.
+          Do not add a second torus, a Fresnel-lit sphere, or anything else
+          that draws its own outline at this radius - every attempt to layer
+          a "glass thickness" or a glass ball here read on screen as two
+          concentric rings. One ring, plus dust. */}
       <mesh>
         <torusGeometry args={[2.6, 0.008, 20, dense ? 260 : 128]} />
         <meshBasicMaterial color={GOLD_PALE} transparent opacity={0.9} />
       </mesh>
-      {/* A wider, fainter sheath just outside it: the glass thickness. */}
-      <mesh>
-        <torusGeometry args={[2.6, 0.03, 20, dense ? 200 : 96]} />
-        <meshBasicMaterial
-          color={GOLD}
-          transparent
-          opacity={0.22}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-
       {/* Two shells of soft dust. Far fewer particles than before - the
           structure now comes from the rim, so the dust only has to add
           atmosphere, and restraint is what keeps it from looking noisy. */}
