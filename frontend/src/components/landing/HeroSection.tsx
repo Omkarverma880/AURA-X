@@ -23,7 +23,7 @@ export function HeroSection({ onAuth }: { onAuth: (mode: "login" | "register") =
         <div className="flex items-center gap-3">
           <button
             onClick={() => onAuth("register")}
-            className="rounded-full border border-white/15 bg-white/[0.03] px-5 py-2 text-sm font-medium text-[#e8a83c] backdrop-blur transition-colors duration-500 hover:border-[#e8a83c]/50 hover:bg-white/[0.07]"
+            className="cursor-pointer rounded-full border border-white/15 bg-white/[0.03] px-5 py-2 text-sm font-medium text-[#e8a83c] backdrop-blur transition-colors duration-500 hover:border-[#e8a83c]/50 hover:bg-white/[0.07]"
           >
             Get Started
           </button>
@@ -31,7 +31,7 @@ export function HeroSection({ onAuth }: { onAuth: (mode: "login" | "register") =
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
-            className="rounded-full p-2 text-white/75 transition-colors duration-300 hover:bg-white/10 hover:text-white"
+            className="cursor-pointer rounded-full p-2 text-white/75 transition-colors duration-300 hover:bg-white/10 hover:text-white"
           >
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -41,13 +41,13 @@ export function HeroSection({ onAuth }: { onAuth: (mode: "login" | "register") =
           <div className="absolute right-6 top-20 z-30 w-48 rounded-2xl border border-white/10 bg-black/85 p-2 backdrop-blur-md md:right-12">
             <button
               onClick={() => onAuth("login")}
-              className="block w-full rounded-xl px-3.5 py-2.5 text-left text-sm text-white/90 transition-colors hover:bg-white/10"
+              className="block w-full cursor-pointer rounded-xl px-3.5 py-2.5 text-left text-sm text-white/90 transition-colors hover:bg-white/10"
             >
               Sign in
             </button>
             <button
               onClick={() => onAuth("register")}
-              className="block w-full rounded-xl px-3.5 py-2.5 text-left text-sm text-white/90 transition-colors hover:bg-white/10"
+              className="block w-full cursor-pointer rounded-xl px-3.5 py-2.5 text-left text-sm text-white/90 transition-colors hover:bg-white/10"
             >
               Create account
             </button>
@@ -76,7 +76,7 @@ export function HeroSection({ onAuth }: { onAuth: (mode: "login" | "register") =
 
         <button
           onClick={() => onAuth("register")}
-          className="group mt-10 flex items-center gap-2.5 rounded-full border border-[#e8a83c]/40 bg-black/30 px-7 py-3 text-sm font-medium text-[#e8a83c] backdrop-blur-sm transition-all duration-500 hover:border-[#e8a83c]/80 hover:bg-[#e8a83c]/10"
+          className="group mt-10 flex cursor-pointer items-center gap-2.5 rounded-full border border-[#e8a83c]/40 bg-black/30 px-7 py-3 text-sm font-medium text-[#e8a83c] backdrop-blur-sm transition-all duration-500 hover:border-[#e8a83c]/80 hover:bg-[#e8a83c]/10"
           style={{ boxShadow: "0 0 0 rgba(232,168,60,0)" }}
         >
           Explore Aura X

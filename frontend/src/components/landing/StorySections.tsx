@@ -191,7 +191,7 @@ export function FinalCta({ onAuth }: { onAuth: (mode: "login" | "register") => v
         <div className="aura-reveal mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <button
             onClick={() => onAuth("register")}
-            className="group flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e8a83c]/50 bg-[#e8a83c]/10 px-8 py-3.5 text-sm font-medium text-[#e8a83c] transition-all duration-500 hover:border-[#e8a83c] hover:bg-[#e8a83c]/20 sm:w-auto"
+            className="group flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-[#e8a83c]/50 bg-[#e8a83c]/10 px-8 py-3.5 text-sm font-medium text-[#e8a83c] transition-all duration-500 hover:border-[#e8a83c] hover:bg-[#e8a83c]/20 sm:w-auto"
           >
             Create your universe
             <span aria-hidden className="transition-transform duration-500 group-hover:translate-x-1">
@@ -200,7 +200,7 @@ export function FinalCta({ onAuth }: { onAuth: (mode: "login" | "register") => v
           </button>
           <button
             onClick={() => onAuth("login")}
-            className="w-full rounded-full border border-white/12 px-8 py-3.5 text-sm text-white/70 transition-colors duration-500 hover:border-white/30 hover:text-white sm:w-auto"
+            className="w-full cursor-pointer rounded-full border border-white/12 px-8 py-3.5 text-sm text-white/70 transition-colors duration-500 hover:border-white/30 hover:text-white sm:w-auto"
           >
             I already have one
           </button>

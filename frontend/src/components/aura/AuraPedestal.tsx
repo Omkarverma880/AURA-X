@@ -34,38 +34,44 @@ export function AuraPedestal({ reflector }: { reflector: boolean }) {
     // pulses, and it takes eleven seconds to do it once.
     const t = state.clock.getElapsedTime();
     const material = core.current.material as THREE.MeshBasicMaterial;
-    material.opacity = 0.7 + Math.sin(t * 0.57) * 0.25;
+    material.opacity = 0.5 + Math.sin(t * 0.57) * 0.18;
   });
 
   return (
     <group>
       {tiers.map((tier, i) => (
         <group key={i} position={[0, tier.y, 0]}>
-          {/* Dark turned metal. Emissive stays near zero on purpose. */}
+          {/* Unlit on purpose.
+              A lit metal here is unpredictable: the warm key light plus ACES
+              tone mapping plus bloom kept returning a brass wash across the
+              whole face no matter how the roughness/metalness were tuned. An
+              unlit material cannot do that - the tiers are exactly this dark
+              navy, always, and every bit of warmth on the dais comes from the
+              rim rings and the core below. */}
           <mesh>
             <cylinderGeometry args={[tier.radius, tier.radius, tier.height, 72]} />
-            <meshStandardMaterial
-              color="#08090e"
-              emissive={GOLD}
-              emissiveIntensity={0.015}
-              roughness={0.14}
-              metalness={0.92}
-            />
+            <meshBasicMaterial color={i === 0 ? "#0d1018" : "#0a0c13"} />
           </mesh>
 
           {/* The gold rim catching light at each step edge - all of the dais's
               warmth comes from these, not from the faces. */}
           <mesh position={[0, tier.height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <torusGeometry args={[tier.radius, 0.005, 12, 120]} />
-            <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.8 - i * 0.13} />
+            <meshBasicMaterial
+              color={i === 0 ? GOLD_BRIGHT : GOLD}
+              transparent
+              opacity={0.75 - i * 0.13}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
           </mesh>
         </group>
       ))}
 
       {/* The warm source at the centre of the dais. */}
-      <pointLight position={[0, -1.4, 0]} color={GOLD_BRIGHT} intensity={0.32} distance={1.7} />
+      <pointLight position={[0, -1.4, 0]} color={GOLD_BRIGHT} intensity={0.22} distance={1.6} />
       <mesh ref={core} position={[0, -1.44, 0]}>
-        <sphereGeometry args={[0.05, 16, 16]} />
+        <sphereGeometry args={[0.035, 16, 16]} />
         <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.9} />
       </mesh>
 

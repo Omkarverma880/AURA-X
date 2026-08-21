@@ -77,12 +77,12 @@ export function PersonDetailPage() {
           <div className="flex flex-wrap gap-2">
             {person.outstanding_receivable > 0 && (
               <Button size="sm" variant="secondary" onClick={() => setPayDirection("given")}>
-                <IndianRupee className="h-4 w-4" /> Received
+                <IndianRupee className="h-4 w-4" /> Record payment
               </Button>
             )}
             {person.outstanding_payable > 0 && (
               <Button size="sm" variant="secondary" onClick={() => setPayDirection("borrowed")}>
-                <IndianRupee className="h-4 w-4" /> Paid
+                <IndianRupee className="h-4 w-4" /> Record repayment
               </Button>
             )}
             <Button size="sm" onClick={() => setAddOpen(true)}>
@@ -139,7 +139,7 @@ export function PersonDetailPage() {
                   }}
                 >
                   <IndianRupee className="h-3.5 w-3.5" />
-                  {entry.direction === "given" ? "Received" : "Paid"}
+                  Record payment
                 </Button>
               )}
             </Link>

@@ -228,7 +228,7 @@ function PeopleGrid({
                       onPay(person, "given");
                     }}
                   >
-                    <IndianRupee className="h-3.5 w-3.5" /> Received
+                    <IndianRupee className="h-3.5 w-3.5" /> Record payment
                   </Button>
                 )}
                 {person.outstanding_payable > 0 && (
@@ -242,7 +242,7 @@ function PeopleGrid({
                       onPay(person, "borrowed");
                     }}
                   >
-                    <IndianRupee className="h-3.5 w-3.5" /> Paid
+                    <IndianRupee className="h-3.5 w-3.5" /> Record payment
                   </Button>
                 )}
               </div>
@@ -325,7 +325,7 @@ function EntriesList({
               }}
             >
               <IndianRupee className="h-3.5 w-3.5" />
-              {entry.direction === "given" ? "Received" : "Paid"}
+              Record payment
             </Button>
           )}
         </Link>

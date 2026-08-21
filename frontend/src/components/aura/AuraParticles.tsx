@@ -3,6 +3,8 @@ import { useFrame } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
 import * as THREE from "three";
 
+import { softDotTexture } from "./softDot";
+
 
 import { AURA_BUDGET, type AuraTier } from "./useAuraCapabilities";
 
@@ -34,19 +36,19 @@ export function AuraParticles({ tier }: { tier: Exclude<AuraTier, "none"> }) {
       {/* Energy trails sweeping in from both sides, the way a long exposure
           catches something orbiting. */}
       <GoldSwirl
-        count={tier === "high" ? 520 : 180}
+        count={tier === "high" ? 300 : 120}
         position={[-3.6, -0.5, -1]}
         rotation={[0.2, 0.35, 0.5]}
         radius={3.6}
-        size={0.022}
+        size={0.09}
         opacity={0.7}
       />
       <GoldSwirl
-        count={tier === "high" ? 320 : 110}
+        count={tier === "high" ? 190 : 80}
         position={[4.1, 0.4, -2.2]}
         rotation={[-0.15, -0.4, -2.5]}
         radius={3.1}
-        size={0.018}
+        size={0.075}
         opacity={0.6}
       />
 
@@ -91,11 +93,12 @@ function CosmicHaze({ count }: { count: number }) {
   return (
     <points ref={points} geometry={geometry}>
       <pointsMaterial
-        color="#7d95ff"
-        size={0.07}
+        map={softDotTexture()}
+        color="#7fa6ff"
+        size={0.5}
         sizeAttenuation
         transparent
-        opacity={0.5}
+        opacity={0.22}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
       />
@@ -160,6 +163,7 @@ function GoldSwirl({
   return (
     <points ref={points} geometry={geometry} position={position} rotation={rotation}>
       <pointsMaterial
+        map={softDotTexture()}
         color="#ffc978"
         size={size}
         sizeAttenuation
