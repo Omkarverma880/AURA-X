@@ -55,9 +55,13 @@ export function HeroSection({ onAuth }: { onAuth: (mode: "login" | "register") =
         )}
       </header>
 
-      {/* The wordmark sits inside the ring - the orb is centred slightly above
-          the vertical middle of the viewport, and this matches it. */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 pb-8 text-center">
+      {/* The wordmark block has to sit inside the ring, and the ring is NOT
+          centred on the viewport - AuraScene lifts it so the dais clears the
+          module shelf, putting the ring's centre at ~38% of viewport height
+          and its lower arc at ~60%. Plain justify-center therefore parked the
+          CTA on top of the dais. The bottom padding pulls the block back up
+          onto the ring's centre, in vh so it tracks the scene at any height. */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 pb-[16vh] text-center">
         <h1 className="text-5xl font-extralight tracking-[0.14em] sm:text-7xl">
           AURA{" "}
           <span
