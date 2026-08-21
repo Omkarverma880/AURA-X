@@ -26,20 +26,23 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
-    rollupOptions: {
-      output: {
-        // Split the heaviest third-party bundles into their own long-lived
-        // cache entries, separate from app code that changes every deploy.
-        manualChunks(id: string) {
-          if (!id.includes("node_modules")) return undefined;
-          if (id.includes("three") || id.includes("@react-three") || id.includes("postprocessing")) return "three";
-          if (id.includes("recharts") || id.includes("d3-")) return "charts";
-          if (id.includes("react-router") || id.includes("/react/") || id.includes("/react-dom/")) return "vendor-react";
-          if (id.includes("@tanstack") || id.includes("axios")) return "vendor-query";
-          if (id.includes("react-hook-form") || id.includes("@hookform") || id.includes("zod")) return "vendor-forms";
-          return "vendor";
-        },
-      },
-    },
+    // No manualChunks on purpose.
+    //
+    // This previously split node_modules into named vendor chunks for
+    // long-lived caching, including a "three" chunk. That backfired: forcing
+    // a manual chunk makes it a *static* dependency of the entry, so
+    // three.js ended up in index.html's modulepreload list and every visitor
+    // downloaded ~1MB of WebGL - even opening /dashboard, which never
+    // renders a scene. The 3D code is only imported by the lazily-loaded
+    // Landing route, so rollup's default splitting keeps it behind that
+    // dynamic boundary where it belongs.
+    //
+    // Measured on first paint (sum of index.html's preloaded chunks):
+    //   manualChunks : 2504K across 11 chunks
+    //   default      :  903K across 15 chunks
+    //
+    // If manual chunking is reintroduced for cache granularity, re-check
+    // with:  grep -o 'assets/[^"]*\.js' dist/index.html
+    // three-*.js must not appear in that list.
   },
 });

@@ -1,266 +1,293 @@
-import { Link } from "react-router-dom";
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
+  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
-import {
-  HandCoins,
-  Wallet,
-  Receipt,
-  TrendingUp,
-  Target,
-  Images,
-  ArrowUpRight,
-  ArrowDownRight,
-  Bell,
-  Clock,
-  Sparkles,
-  Lock,
-  LineChart,
-} from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { StatCard } from "@/components/shared/StatCard";
+import { Bell, Clock, Lock, LineChart, Sparkles } from "lucide-react";
+
 import { CurrencyDisplay } from "@/components/shared/CurrencyDisplay";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { CommandHeader } from "@/components/dashboard/CommandHeader";
+import { OverviewGrid } from "@/components/dashboard/OverviewGrid";
+import { DimensionTiles } from "@/components/dashboard/DimensionTiles";
+import { useAuraReveal } from "@/components/aura/useAuraReveal";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useExpenseTrend } from "@/hooks/useExpenses";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatDate, formatMoneyCompact, formatRelativeTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { ModuleCard } from "@/types";
-import type { LucideIcon } from "lucide-react";
 
 function monthLabel(month: string): string {
   const [year, m] = month.split("-");
   return new Date(Number(year), Number(m) - 1, 1).toLocaleDateString("en-US", { month: "short" });
 }
 
-const MODULE_META: Record<string, { icon: LucideIcon; route: string; label: string }> = {
-  bahi_khata: { icon: HandCoins, route: "/bahi-khata", label: "Bahi Khata" },
-  expenses: { icon: Receipt, route: "/expenses", label: "Expenses" },
-  investments: { icon: TrendingUp, route: "/investments", label: "Investments" },
-  goals: { icon: Target, route: "/goals", label: "Goals" },
-  life: { icon: Images, route: "/memories", label: "Life & Memories" },
-};
-
+/**
+ * The Aura X command centre.
+ *
+ * Deliberately always dark, whatever the user's light/dark preference: this
+ * page and the public landing page are one continuous universe, and every
+ * other module still follows the theme normally.
+ *
+ * Data and privacy behaviour are unchanged from the previous dashboard - the
+ * same useDashboard/useExpenseTrend hooks, the same CurrencyDisplay masking,
+ * the same server-side Green PIN gate. Only the surface is new.
+ */
 export function DashboardPage() {
   const { user } = useAuth();
   const { data, isLoading } = useDashboard();
   const { isUnlocked, promptUnlock } = useFinancial();
   const { data: trend } = useExpenseTrend(6, isUnlocked);
-
-  if (isLoading || !data) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }, (_, i) => <SkeletonCard key={i} />)}
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 5 }, (_, i) => <SkeletonCard key={i} />)}
-        </div>
-      </div>
-    );
-  }
-
-  const { greeting, snapshot, cards, upcoming_reminders, recent_activity } = data;
+  const revealRef = useAuraReveal<HTMLDivElement>();
 
   return (
-    <div className="space-y-7">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-          {greeting.greeting}, {greeting.name || user?.full_name?.split(" ")[0]}
-        </h1>
-        <p className="text-sm text-[var(--text-secondary)]">{formatDate(greeting.date, "long")}</p>
-      </div>
+    // Full-bleed: cancels AppShell's main padding (px-4 pb-24 pt-5 /
+    // md:px-8 md:pb-8 md:pt-5) so the universe reaches the edges of the
+    // content area instead of floating in a themed frame. If that padding
+    // ever changes, these offsets must change with it.
+    <div className="aura-surface -mx-4 -mb-24 -mt-5 min-h-dvh md:-mx-8 md:-mb-8">
+      {isLoading || !data ? (
+        <DashboardSkeleton />
+      ) : (
+        <div ref={revealRef}>
+          <CommandHeader greeting={data.greeting} fallbackName={user?.full_name} />
 
-      {/* Financial snapshot */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="To Receive"
-          icon={HandCoins}
-          value={<CurrencyDisplay value={snapshot.to_receive} compact clickToUnlock={false} size="lg" />}
-        />
-        <StatCard
-          label="To Pay"
-          icon={Wallet}
-          value={<CurrencyDisplay value={snapshot.to_pay} compact clickToUnlock={false} size="lg" />}
-        />
-        <StatCard
-          label="Monthly Income"
-          icon={ArrowUpRight}
-          value={<CurrencyDisplay value={snapshot.monthly_income} compact size="lg" />}
-        />
-        <StatCard
-          label="Monthly Expenses"
-          icon={ArrowDownRight}
-          value={<CurrencyDisplay value={snapshot.monthly_expenses} compact size="lg" />}
-        />
-      </div>
+          <div className="space-y-9 px-5 pb-16 md:px-10">
+            <OverviewGrid snapshot={data.snapshot} />
 
-      {snapshot.net_savings !== null && (
-        <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
-          <div>
-            <p className="text-sm text-[var(--text-secondary)]">Net savings this month</p>
-            <CurrencyDisplay value={snapshot.net_savings} size="xl" />
+            {data.snapshot.net_savings !== null && (
+              <div className="aura-panel flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--aura-text-faint)]">
+                    Net savings this month
+                  </p>
+                  <div className="mt-2 text-[var(--aura-text)]">
+                    <CurrencyDisplay value={data.snapshot.net_savings} size="xl" />
+                  </div>
+                </div>
+                {data.snapshot.savings_rate !== null && (
+                  <span
+                    className="rounded-full border px-4 py-1.5 text-xs tracking-wide"
+                    style={{
+                      borderColor:
+                        data.snapshot.savings_rate >= 20
+                          ? "rgba(74,222,128,0.3)"
+                          : "rgba(251,191,36,0.3)",
+                      color: data.snapshot.savings_rate >= 20 ? "#86efac" : "#fcd34d",
+                    }}
+                  >
+                    {data.snapshot.savings_rate.toFixed(0)}% savings rate
+                  </span>
+                )}
+              </div>
+            )}
+
+            <TrendPanel trend={trend} isUnlocked={isUnlocked} onUnlock={promptUnlock} />
+
+            <section>
+              <SectionHeading>Your dimensions</SectionHeading>
+              <DimensionTiles cards={data.cards} />
+            </section>
+
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <section>
+                <SectionHeading icon={Bell}>Upcoming</SectionHeading>
+                <div className="aura-panel divide-y divide-[var(--aura-line)] overflow-hidden">
+                  {data.upcoming_reminders.length === 0 ? (
+                    <EmptyRow icon={Sparkles} title="Nothing due soon" detail="You're all caught up." />
+                  ) : (
+                    data.upcoming_reminders.map((reminder, i) => (
+                      <div key={i} className="flex items-center gap-3 p-4">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[rgba(251,191,36,0.25)] bg-[rgba(251,191,36,0.06)]">
+                          <Clock className="h-4 w-4 text-[#fcd34d]" strokeWidth={1.6} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm text-[var(--aura-text)]">{reminder.title}</p>
+                          <p className="truncate text-xs text-[var(--aura-text-faint)]">{reminder.detail}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-[var(--aura-text-faint)]">
+                          {formatDate(reminder.due_date, "short")}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <SectionHeading>Recent activity</SectionHeading>
+                <div className="aura-panel divide-y divide-[var(--aura-line)] overflow-hidden">
+                  {data.recent_activity.length === 0 ? (
+                    <EmptyRow icon={Sparkles} title="No activity yet" detail="Your actions will show up here." />
+                  ) : (
+                    data.recent_activity.map((item, i) => (
+                      <div key={i} className="p-4">
+                        <p className="truncate text-sm text-[var(--aura-text-dim)]">
+                          {item.summary ?? item.action}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[var(--aura-text-faint)]">
+                          {formatRelativeTime(item.created_at)}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
-          {snapshot.savings_rate !== null && (
-            <Badge variant={snapshot.savings_rate >= 20 ? "positive" : "warning"}>
-              {snapshot.savings_rate.toFixed(0)}% savings rate
-            </Badge>
-          )}
-        </Card>
+        </div>
       )}
-
-      {/* Month-on-month trend */}
-      <div>
-        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
-          <LineChart className="h-4 w-4" /> Income &amp; spending, month on month
-        </h2>
-        {!isUnlocked ? (
-          <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)]">
-                <Lock className="h-5 w-5 text-[var(--brand)]" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[var(--text-primary)]">Trend is confidential</p>
-                <p className="text-xs text-[var(--text-tertiary)]">Enter your Green PIN to see savings trends.</p>
-              </div>
-            </div>
-            <Button size="sm" onClick={() => promptUnlock()}>Unlock</Button>
-          </Card>
-        ) : trend && trend.length > 0 ? (
-          <Card className="p-5">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={trend} margin={{ left: -12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tickFormatter={monthLabel}
-                    tick={{ fontSize: 11, fill: "var(--text-tertiary)" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tickFormatter={(v) => formatMoneyCompact(v)}
-                    tick={{ fontSize: 11, fill: "var(--text-tertiary)" }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={56}
-                  />
-                  <Tooltip
-                    formatter={(value, name) => [formatMoneyCompact(Number(value)), name]}
-                    labelFormatter={(label) => monthLabel(String(label))}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="income" name="Income" fill="var(--positive)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="expenses" name="Expenses" fill="var(--negative)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                  <Line
-                    type="monotone"
-                    dataKey="savings"
-                    name="Savings"
-                    stroke="var(--brand)"
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: "var(--brand)", strokeWidth: 0 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        ) : (
-          <EmptyState icon={LineChart} title="Not enough history yet" description="Log a month of income and expenses to see the trend." />
-        )}
-      </div>
-
-      {/* Module cards */}
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Your world at a glance</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((card) => (
-            <ModuleCardTile key={card.module} card={card} />
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Reminders */}
-        <div>
-          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
-            <Bell className="h-4 w-4" /> Upcoming reminders
-          </h2>
-          <Card className="divide-y divide-[var(--border-subtle)] overflow-hidden">
-            {upcoming_reminders.length === 0 ? (
-              <EmptyState icon={Sparkles} title="Nothing due soon" description="You're all caught up." />
-            ) : (
-              upcoming_reminders.map((reminder, i) => (
-                <div key={i} className="flex items-center gap-3 p-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--warning-soft)]">
-                    <Clock className="h-4 w-4 text-[var(--warning)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[var(--text-primary)]">{reminder.title}</p>
-                    <p className="truncate text-xs text-[var(--text-tertiary)]">{reminder.detail}</p>
-                  </div>
-                  <span className="shrink-0 text-xs text-[var(--text-tertiary)]">{formatDate(reminder.due_date, "short")}</span>
-                </div>
-              ))
-            )}
-          </Card>
-        </div>
-
-        {/* Recent activity */}
-        <div>
-          <h2 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Recent activity</h2>
-          <Card className="divide-y divide-[var(--border-subtle)] overflow-hidden">
-            {recent_activity.length === 0 ? (
-              <EmptyState icon={Sparkles} title="No activity yet" description="Your recent actions will show up here." />
-            ) : (
-              recent_activity.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-[var(--text-primary)]">{item.summary ?? item.action}</p>
-                    <p className="text-xs text-[var(--text-tertiary)]">{formatRelativeTime(item.created_at)}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }
 
-function ModuleCardTile({ card }: { card: ModuleCard }) {
-  const meta = MODULE_META[card.module];
-  const Icon = meta?.icon ?? Target;
-
+function SectionHeading({
+  children,
+  icon: Icon,
+}: {
+  children: React.ReactNode;
+  icon?: typeof Bell;
+}) {
   return (
-    <Link to={meta?.route ?? "/dashboard"}>
-      <Card className="flex h-full items-center gap-4 p-5 transition-transform hover:-translate-y-0.5 hover:shadow-elevated">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-soft)]">
-          <Icon className="h-6 w-6 text-[var(--brand)]" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)]">
-            {meta?.label ?? card.module}
-          </p>
-          <p
-            className={cn(
-              "mt-0.5 truncate text-base font-semibold",
-              card.locked ? "tracking-[0.2em] text-[var(--text-tertiary)]" : "text-[var(--text-primary)]",
-            )}
+    <h2 className="mb-4 flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-[var(--aura-text-faint)]">
+      {Icon && <Icon className="h-3.5 w-3.5" strokeWidth={1.6} />}
+      {children}
+      <span className="ml-1 h-px flex-1 bg-[var(--aura-line)]" />
+    </h2>
+  );
+}
+
+function EmptyRow({
+  icon: Icon,
+  title,
+  detail,
+}: {
+  icon: typeof Sparkles;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+      <Icon className="h-5 w-5 text-[var(--aura-text-faint)]" strokeWidth={1.5} />
+      <p className="text-sm text-[var(--aura-text-dim)]">{title}</p>
+      <p className="text-xs text-[var(--aura-text-faint)]">{detail}</p>
+    </div>
+  );
+}
+
+/**
+ * Month-on-month income, spend and savings.
+ *
+ * Stays locked behind the Green PIN exactly as before - the trend query is
+ * only enabled while unlocked, so a locked session never even requests the
+ * figures.
+ */
+function TrendPanel({
+  trend,
+  isUnlocked,
+  onUnlock,
+}: {
+  trend: Array<{ month: string; income: number; expenses: number; savings: number }> | undefined;
+  isUnlocked: boolean;
+  onUnlock: () => void;
+}) {
+  return (
+    <section>
+      <SectionHeading icon={LineChart}>Cash flow, month on month</SectionHeading>
+
+      {!isUnlocked ? (
+        <div className="aura-panel flex flex-wrap items-center justify-between gap-4 p-6">
+          <div className="flex items-center gap-3.5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--aura-line-strong)] bg-[rgba(232,168,60,0.06)]">
+              <Lock className="h-5 w-5 text-[var(--aura-gold)]" strokeWidth={1.6} />
+            </span>
+            <div>
+              <p className="text-sm text-[var(--aura-text)]">This trend is confidential</p>
+              <p className="text-xs text-[var(--aura-text-faint)]">
+                Enter your Green PIN to reveal income and spending.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onUnlock}
+            className="rounded-full border border-[var(--aura-line-strong)] px-5 py-2 text-xs uppercase tracking-[0.16em] text-[var(--aura-gold)] transition-colors duration-500 hover:bg-[rgba(232,168,60,0.1)]"
           >
-            {card.headline}
-          </p>
-          <p className="truncate text-xs text-[var(--text-tertiary)]">{card.subtext}</p>
+            Unlock
+          </button>
         </div>
-      </Card>
-    </Link>
+      ) : trend && trend.length > 0 ? (
+        <div className="aura-panel p-5 sm:p-6">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={trend} margin={{ left: -12 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tickFormatter={monthLabel}
+                  tick={{ fontSize: 11, fill: "rgba(242,242,245,0.38)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={(v) => formatMoneyCompact(v)}
+                  tick={{ fontSize: 11, fill: "rgba(242,242,245,0.38)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={56}
+                />
+                <Tooltip
+                  cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                  contentStyle={{
+                    background: "#0b0b12",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                  labelStyle={{ color: "rgba(242,242,245,0.62)" }}
+                  formatter={(value, name) => [formatMoneyCompact(Number(value)), name]}
+                  labelFormatter={(label) => monthLabel(String(label))}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, color: "rgba(242,242,245,0.62)" }} />
+                <Bar dataKey="income" name="Income" fill="#4ade80" radius={[4, 4, 0, 0]} maxBarSize={26} />
+                <Bar dataKey="expenses" name="Expenses" fill="#f87171" radius={[4, 4, 0, 0]} maxBarSize={26} />
+                <Line
+                  type="monotone"
+                  dataKey="savings"
+                  name="Savings"
+                  stroke="#e8a83c"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: "#e8a83c", strokeWidth: 0 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : (
+        <div className="aura-panel">
+          <EmptyRow
+            icon={LineChart}
+            title="Not enough history yet"
+            detail="Log a month of income and expenses to see the trend."
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8 px-5 py-10 md:px-10">
+      <Skeleton className="h-10 w-72 bg-white/5" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-28 bg-white/5" />
+        ))}
+      </div>
+      <Skeleton className="h-72 bg-white/5" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} className="h-44 bg-white/5" />
+        ))}
+      </div>
+    </div>
   );
 }
