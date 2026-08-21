@@ -116,3 +116,66 @@ def test_another_users_person_cannot_be_paid(alice, bob):
     person_id = alice.get(f"{BASE}/people").json()[0]["id"]
 
     assert pay(bob, person_id, 100).status_code == 404
+
+
+# --- Voiding a wrong entry ----------------------------------------------
+
+
+def void(alice, txn_id, reason="Recorded by mistake"):
+    return alice.post(
+        f"{BASE}/transactions/{txn_id}/void", json={"reason": reason}
+    )
+
+
+def _first_repayment_id(alice, entry_id):
+    detail = alice.get(f"{BASE}/entries/{entry_id}").json()
+    return next(t["id"] for t in detail["transactions"] if t["txn_type"] == "repayment")
+
+
+def test_voiding_a_wrong_payment_restores_the_balance(alice):
+    entry = lend(alice, 5000, "Loan")
+    alice.post(
+        f"{BASE}/entries/{entry['id']}/transactions",
+        json={"txn_type": "repayment", "amount": 1000},
+    )
+    assert alice.get(f"{BASE}/entries/{entry['id']}").json()["outstanding"] == 4000
+
+    assert void(alice, _first_repayment_id(alice, entry["id"])).status_code == 200
+
+    detail = alice.get(f"{BASE}/entries/{entry['id']}").json()
+    assert detail["outstanding"] == 5000
+    # The row survives, marked voided - a correction, not a hole in the record.
+    voided = [t for t in detail["transactions"] if t["is_voided"]]
+    assert len(voided) == 1
+    assert voided[0]["void_reason"] == "Recorded by mistake"
+
+
+def test_voiding_requires_the_green_pin_once_one_is_set(alice):
+    entry = lend(alice, 5000, "Loan")
+    alice.post(
+        f"{BASE}/entries/{entry['id']}/transactions",
+        json={"txn_type": "repayment", "amount": 1000},
+    )
+    txn_id = _first_repayment_id(alice, entry["id"])
+
+    alice.set_pin("8317")
+    locked = void(alice, txn_id)
+    assert locked.status_code == 423
+    assert locked.json()["error"]["code"] == "financial_locked"
+
+    # And the money is untouched while the attempt is refused.
+    assert alice.get(f"{BASE}/entries/{entry['id']}").json()["outstanding"] == 4000
+
+    alice.unlock("8317")
+    assert void(alice, txn_id).status_code == 200
+    assert alice.get(f"{BASE}/entries/{entry['id']}").json()["outstanding"] == 5000
+
+
+def test_users_without_a_pin_can_still_void(alice):
+    """The PIN gate is opt-in; a user who never set one is not locked out."""
+    entry = lend(alice, 5000, "Loan")
+    alice.post(
+        f"{BASE}/entries/{entry['id']}/transactions",
+        json={"txn_type": "repayment", "amount": 1000},
+    )
+    assert void(alice, _first_repayment_id(alice, entry["id"])).status_code == 200

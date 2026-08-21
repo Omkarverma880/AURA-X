@@ -18,6 +18,7 @@ import {
 } from "@/hooks/useBahiKhata";
 import { formatDate } from "@/lib/format";
 import { useToast } from "@/contexts/ToastContext";
+import { useFinancial } from "@/contexts/FinancialContext";
 import { isApiError } from "@/lib/api";
 
 export function EntryDetailPage() {
@@ -33,6 +34,17 @@ export function EntryDetailPage() {
   const [settleConfirm, setSettleConfirm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [voidTarget, setVoidTarget] = useState<string | null>(null);
+  const { isUnlocked, isPinConfigured, promptUnlock } = useFinancial();
+
+  /** Same Green PIN gate as the person ledger: the server enforces it, this
+   *  just asks for the PIN up front instead of letting the call 423. */
+  const askToVoid = (txnId: string) => {
+    if (isPinConfigured && !isUnlocked) {
+      promptUnlock(() => setVoidTarget(txnId));
+      return;
+    }
+    setVoidTarget(txnId);
+  };
 
   if (isLoading || !entry) {
     return (
@@ -137,7 +149,7 @@ export function EntryDetailPage() {
               {!txn.is_voided && txn.txn_type !== "principal" && (
                 <button
                   type="button"
-                  onClick={() => setVoidTarget(txn.id)}
+                  onClick={() => askToVoid(txn.id)}
                   className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-inset)] hover:text-[var(--negative)]"
                   title="Void this transaction"
                 >

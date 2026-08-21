@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import APIRouter, Query, status
 
-from app.core.deps import CurrentAuth, DbSession
+from app.core.deps import CurrentAuth, DbSession, UnlockedAuth
 from app.schemas.common import MessageResponse, Page
 from app.schemas.ledger import (
     EntryCreate,
@@ -200,9 +200,15 @@ def settle_entry(
 
 @router.post("/transactions/{txn_id}/void", response_model=TransactionOut)
 def void_transaction(
-    txn_id: uuid.UUID, payload: VoidRequest, db: DbSession, ctx: CurrentAuth
+    txn_id: uuid.UUID, payload: VoidRequest, db: DbSession, ctx: UnlockedAuth
 ) -> TransactionOut:
-    """Reverse a transaction while keeping it visible in the history."""
+    """Reverse a transaction while keeping it visible in the history.
+
+    Green-PIN gated: removing money from the record is the one ledger action
+    that cannot be undone by simply looking again, so it sits behind the same
+    unlock as reading the figures. Users who never set a PIN are unaffected -
+    require_finance_unlock stays open for them.
+    """
     txn = service.void_transaction(db, ctx.user_id, txn_id, payload.reason)
     db.commit()
     return TransactionOut.model_validate(service.serialise_txn(txn, None))

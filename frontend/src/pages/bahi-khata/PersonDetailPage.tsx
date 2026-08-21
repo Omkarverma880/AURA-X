@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Phone, Mail, Plus, Archive, IndianRupee } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Plus, Archive, IndianRupee, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge, statusVariant } from "@/components/ui/Badge";
@@ -11,9 +11,10 @@ import { CurrencyDisplay } from "@/components/shared/CurrencyDisplay";
 import { AddEntryDialog } from "@/components/bahi-khata/AddEntryDialog";
 import { RecordTransactionDialog } from "@/components/bahi-khata/RecordTransactionDialog";
 import { RecordPersonPaymentDialog } from "@/components/bahi-khata/RecordPersonPaymentDialog";
-import { usePersonDetail, useDeletePerson } from "@/hooks/useBahiKhata";
+import { usePersonDetail, useDeletePerson, useVoidTransaction } from "@/hooks/useBahiKhata";
 import { formatDate } from "@/lib/format";
 import { useToast } from "@/contexts/ToastContext";
+import { useFinancial } from "@/contexts/FinancialContext";
 import { isApiError } from "@/lib/api";
 import type { LedgerEntry } from "@/types";
 
@@ -27,6 +28,19 @@ export function PersonDetailPage() {
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [recordFor, setRecordFor] = useState<LedgerEntry | null>(null);
   const [payDirection, setPayDirection] = useState<"given" | "borrowed" | null>(null);
+  const [voidTarget, setVoidTarget] = useState<string | null>(null);
+  const voidTransaction = useVoidTransaction();
+  const { isUnlocked, isPinConfigured, promptUnlock } = useFinancial();
+
+  /** Deleting money from the record sits behind the Green PIN, so an unlocked
+   *  session is required before the confirm dialog even opens. */
+  const askToDelete = (txnId: string) => {
+    if (isPinConfigured && !isUnlocked) {
+      promptUnlock(() => setVoidTarget(txnId));
+      return;
+    }
+    setVoidTarget(txnId);
+  };
 
   if (isLoading || !person) {
     return (
@@ -145,6 +159,7 @@ export function PersonDetailPage() {
                   <th className="px-4 py-2.5 font-medium">Description</th>
                   <th className="px-4 py-2.5 text-right font-medium">Amount</th>
                   <th className="px-4 py-2.5 text-right font-medium">Balance</th>
+                  <th className="w-10 px-2 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -163,6 +178,25 @@ export function PersonDetailPage() {
                     </td>
                     <td className="px-4 py-2.5 text-right font-medium">
                       <CurrencyDisplay value={txn.balance_after} compact clickToUnlock={false} />
+                    </td>
+                    <td className="px-2 py-2.5 text-right">
+                      {txn.is_voided ? (
+                        <span
+                          className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]"
+                          title={txn.void_reason ?? undefined}
+                        >
+                          voided
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => askToDelete(txn.id)}
+                          className="rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-inset)] hover:text-[var(--negative)]"
+                          title="Delete this transaction"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -200,6 +234,32 @@ export function PersonDetailPage() {
         <RecordTransactionDialog open onClose={() => setRecordFor(null)} entry={recordFor} />
       )}
       <AddEntryDialog open={addOpen} onClose={() => setAddOpen(false)} />
+
+      <ConfirmDialog
+        open={!!voidTarget}
+        onClose={() => setVoidTarget(null)}
+        title="Delete this transaction?"
+        description="It stays in the history marked as voided, and the balance is corrected straight away."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={async () => {
+          if (!voidTarget) return;
+          try {
+            await voidTransaction.mutateAsync({
+              txnId: voidTarget,
+              reason: "Deleted from the ledger",
+            });
+            toast({ title: "Transaction deleted", variant: "success" });
+            setVoidTarget(null);
+          } catch (error) {
+            toast({
+              title: "Could not delete transaction",
+              description: isApiError(error) ? error.message : undefined,
+              variant: "error",
+            });
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={archiveConfirm}
