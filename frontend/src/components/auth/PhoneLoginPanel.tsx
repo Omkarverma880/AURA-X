@@ -17,6 +17,7 @@ export function PhoneLoginPanel() {
   const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("");
   const [debugCode, setDebugCode] = useState<string | null>(null);
+  const [channel, setChannel] = useState<string>("none");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { loginWithPhone } = useAuth();
@@ -27,11 +28,12 @@ export function PhoneLoginPanel() {
     setError(null);
     setLoading(true);
     try {
-      const { data } = await api.post<{ message: string; debug_code: string | null }>(
+      const { data } = await api.post<{ message: string; channel: string; debug_code: string | null }>(
         "/auth/phone/otp",
         { phone },
       );
       setDebugCode(data.debug_code);
+      setChannel(data.channel);
       setStep("code");
       toast({ title: "Code sent", description: data.message, variant: "info" });
     } catch (err) {
@@ -74,6 +76,7 @@ export function PhoneLoginPanel() {
     <div className="space-y-4">
       <div>
         <Label htmlFor="otp">Enter the 6-digit code</Label>
+        <FieldHint>{codeSentHint(channel, phone)}</FieldHint>
         <Input
           id="otp"
           inputMode="numeric"
@@ -110,4 +113,12 @@ export function PhoneLoginPanel() {
       </button>
     </div>
   );
+}
+
+/** Tells the user which app to go looking in - a code that arrived on
+ * WhatsApp is easy to miss while staring at the SMS inbox. */
+function codeSentHint(channel: string, phone: string): string {
+  if (channel === "whatsapp") return `Sent on WhatsApp to ${phone}.`;
+  if (channel === "sms") return `Sent by SMS to ${phone}.`;
+  return `Sent to ${phone}.`;
 }

@@ -108,6 +108,9 @@ class PhoneVerifyRequest(BaseModel):
 class OtpSentResponse(BaseModel):
     message: str
     expires_in_minutes: int
+    #: Channel the code actually went out on - "whatsapp", "sms", or "none"
+    #: when no provider is configured and the code is returned inline below.
+    channel: str = "none"
     #: Populated only in development when no SMS provider is configured, so
     #: the flow can be exercised end-to-end without sending a real text.
     debug_code: str | None = None

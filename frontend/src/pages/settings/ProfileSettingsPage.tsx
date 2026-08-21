@@ -153,11 +153,13 @@ function PhoneLinkCard() {
   const [step, setStep] = useState<"idle" | "code">("idle");
   const [code, setCode] = useState("");
   const [debugCode, setDebugCode] = useState<string | null>(null);
+  const [sentMessage, setSentMessage] = useState<string>("");
 
   const startLink = async () => {
     try {
       const result = await requestOtp.mutateAsync(phone);
       setDebugCode(result.debug_code);
+      setSentMessage(result.message);
       setStep("code");
     } catch (error) {
       toast({ title: "Could not send code", description: isApiError(error) ? error.message : undefined, variant: "error" });
@@ -214,6 +216,9 @@ function PhoneLinkCard() {
               />
               <Button onClick={verify} loading={confirmLink.isPending}>Verify</Button>
             </div>
+            {sentMessage && (
+              <p className="text-xs text-[var(--text-tertiary)]">{sentMessage}</p>
+            )}
             {debugCode && (
               <p className="text-xs text-[var(--text-tertiary)]">
                 Development mode - code is <span className="font-mono">{debugCode}</span>

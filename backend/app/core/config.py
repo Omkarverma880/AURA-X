@@ -66,9 +66,42 @@ class Settings(BaseSettings):
     OTP_TTL_MINUTES: int = 10
     OTP_MAX_ATTEMPTS: int = 5
     OTP_RESEND_SECONDS: int = 45
-    #: Generic webhook-style SMS gateway (Twilio, MSG91, TextLocal, etc. can
-    #: all be fronted by a small relay that accepts {to, message}). Left blank
-    #: in development, where the code is logged instead of sent.
+    #: Which channel to deliver codes over. "auto" tries WhatsApp first and
+    #: falls back to SMS, which is what most Indian apps do now that A2P SMS
+    #: needs DLT registration while WhatsApp does not.
+    OTP_CHANNEL: Literal["auto", "whatsapp", "sms"] = "auto"
+
+    # WhatsApp — Meta Cloud API (graph.facebook.com). Free to start, no DLT
+    # registration, but OTP text must go out as an approved *authentication*
+    # template rather than free-form text.
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_ACCESS_TOKEN: str = ""
+    WHATSAPP_OTP_TEMPLATE: str = "otp_login"
+    WHATSAPP_TEMPLATE_LANG: str = "en_US"
+    #: Meta's authentication templates normally carry a "Copy code" button,
+    #: which must be filled in with the same code as the body. Set false only
+    #: if your approved template has no button.
+    WHATSAPP_OTP_COPY_BUTTON: bool = True
+    WHATSAPP_API_VERSION: str = "v21.0"
+
+    # WhatsApp / SMS — Twilio. One account covers both channels; WhatsApp
+    # additionally needs a sender (the sandbox number works for testing).
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""
+    TWILIO_MESSAGING_SERVICE_SID: str = ""
+    TWILIO_WHATSAPP_FROM: str = ""
+
+    # SMS — MSG91 (India). Uses their OTP endpoint, so the code is passed as a
+    # template variable rather than as raw body text.
+    MSG91_AUTH_KEY: str = ""
+    MSG91_TEMPLATE_ID: str = ""
+    MSG91_SENDER_ID: str = "AURAXX"
+    MSG91_OTP_VAR: str = "otp"
+
+    #: Generic webhook-style SMS gateway (any provider fronted by a small
+    #: relay that accepts {to, message}). Left blank in development, where
+    #: the code is logged instead of sent.
     SMS_WEBHOOK_URL: str = ""
     SMS_API_KEY: str = ""
     SMS_SENDER_ID: str = "AuraX"
@@ -130,8 +163,44 @@ class Settings(BaseSettings):
         return bool(self.SMTP_HOST)
 
     @property
+    def twilio_enabled(self) -> bool:
+        return bool(self.TWILIO_ACCOUNT_SID and self.TWILIO_AUTH_TOKEN)
+
+    @property
+    def whatsapp_meta_enabled(self) -> bool:
+        return bool(self.WHATSAPP_PHONE_NUMBER_ID and self.WHATSAPP_ACCESS_TOKEN)
+
+    @property
+    def whatsapp_twilio_enabled(self) -> bool:
+        return bool(self.twilio_enabled and self.TWILIO_WHATSAPP_FROM)
+
+    @property
+    def whatsapp_enabled(self) -> bool:
+        return self.whatsapp_meta_enabled or self.whatsapp_twilio_enabled
+
+    @property
+    def twilio_sms_enabled(self) -> bool:
+        return bool(
+            self.twilio_enabled
+            and (self.TWILIO_FROM_NUMBER or self.TWILIO_MESSAGING_SERVICE_SID)
+        )
+
+    @property
+    def msg91_enabled(self) -> bool:
+        return bool(self.MSG91_AUTH_KEY and self.MSG91_TEMPLATE_ID)
+
+    @property
     def sms_enabled(self) -> bool:
-        return bool(self.SMS_WEBHOOK_URL)
+        return bool(self.SMS_WEBHOOK_URL or self.twilio_sms_enabled or self.msg91_enabled)
+
+    @property
+    def otp_delivery_enabled(self) -> bool:
+        """True when *some* provider can actually deliver a code.
+
+        The OTP endpoints check this rather than ``sms_enabled`` so that a
+        WhatsApp-only deployment is not mistaken for an unconfigured one.
+        """
+        return self.sms_enabled or self.whatsapp_enabled
 
     @property
     def max_upload_bytes(self) -> int:

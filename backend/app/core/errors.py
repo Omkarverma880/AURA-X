@@ -64,6 +64,18 @@ class RateLimited(AppError):
     status_code, code, message = 429, "rate_limited", "Too many attempts. Please try again later."
 
 
+class ServiceUnavailable(AppError):
+    """A dependency the request needs - an SMS/WhatsApp gateway, say - is
+    unconfigured or refused the call. Reported honestly rather than as a
+    success the user then waits on forever."""
+
+    status_code, code, message = (
+        503,
+        "service_unavailable",
+        "That service is temporarily unavailable. Please try again shortly.",
+    )
+
+
 class FinancialLocked(AppError):
     """Raised when a Green-PIN protected resource is read while locked."""
 

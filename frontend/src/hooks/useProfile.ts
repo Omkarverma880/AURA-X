@@ -57,7 +57,7 @@ export function useChangePassword() {
 export function useRequestPhoneLinkOtp() {
   return useMutation({
     mutationFn: async (phone: string) => {
-      const { data } = await api.post<{ message: string; expires_in_minutes: number; debug_code: string | null }>(
+      const { data } = await api.post<{ message: string; expires_in_minutes: number; channel: string; debug_code: string | null }>(
         "/users/me/phone/otp",
         { phone },
       );

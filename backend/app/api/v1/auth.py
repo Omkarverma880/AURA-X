@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import httpx
@@ -13,7 +14,7 @@ from sqlalchemy import select
 from app.api.cookies import clear_auth_cookies, set_auth_cookies
 from app.core.config import settings
 from app.core.deps import ClientCtx, CurrentAuth, DbSession
-from app.core.errors import BadRequest, Unauthorized
+from app.core.errors import BadRequest, ServiceUnavailable, Unauthorized
 from app.core.logging import get_logger
 from app.core.rate_limit import rate_limiter
 from app.models.enums import AuditAction, AuthProvider, TokenPurpose
@@ -34,7 +35,7 @@ from app.schemas.auth import (
 from app.schemas.common import MessageResponse
 from app.services import audit, auth as auth_service, email as email_service, green_pin
 from app.services import phone_auth
-from app.services import sms as sms_service
+from app.services import messaging as sms_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -55,11 +56,58 @@ def _serialise_user(db, user: User) -> UserOut:
     return payload
 
 
-def _otp_response(message: str, code: str | None) -> "OtpSentResponse":
+def otp_response(
+    db,
+    result: "sms_service.DeliveryResult",
+    code: str,
+    otp,
+    *,
+    destination: str = "",
+) -> "OtpSentResponse":
+    """Turn a delivery attempt into a response - or an honest error.
+
+    Previously the endpoints reported "a code has been sent" regardless of
+    what the gateway did, so a deployment with no provider configured left
+    users waiting on a message that was never going to arrive. Now a failure
+    is surfaced, and the pending code is retired first so the resend cooldown
+    does not then block the user from trying again.
+    """
+    if not result.delivered:
+        if not settings.is_production:
+            # Development: no provider needed, the code comes back inline and
+            # the pending OTP stays live so it can actually be verified.
+            return OtpSentResponse(
+                message="No messaging provider is configured, so the code is shown here.",
+                expires_in_minutes=settings.OTP_TTL_MINUTES,
+                channel="none",
+                debug_code=code,
+            )
+
+        # Nothing reached the user, so retire the pending code - otherwise the
+        # resend cooldown would block them from trying again for a code they
+        # never received.
+        otp.consumed_at = datetime.now(timezone.utc)
+        db.commit()
+
+        if result.error == "no_provider":
+            raise ServiceUnavailable(
+                "Verification codes are not set up on this server yet. "
+                "Please sign in with your e-mail and password instead.",
+                code="otp_provider_missing",
+            )
+        raise ServiceUnavailable(
+            "We could not send your verification code just now. Please try again "
+            "in a moment.",
+            code="otp_send_failed",
+        )
+
+    where = f" to {destination}" if destination else ""
+    label = f" {result.channel_label}" if result.channel_label else ""
     return OtpSentResponse(
-        message=message,
+        message=f"A verification code has been sent{where}{label}.",
         expires_in_minutes=settings.OTP_TTL_MINUTES,
-        debug_code=code if (not settings.sms_enabled and not settings.is_production) else None,
+        channel=result.channel,
+        debug_code=None,
     )
 
 
@@ -295,10 +343,10 @@ def request_phone_login_otp(
     phone = phone_auth.normalise_phone(payload.phone)
     rate_limiter.check("phone_otp", f"{client.ip or 'unknown'}:{phone}")
 
-    code, _ = phone_auth.request_otp(db, phone, "login")
+    code, otp = phone_auth.request_otp(db, phone, "login")
     db.commit()
-    sms_service.send_otp(phone, code)
-    return _otp_response("A verification code has been sent.", code)
+    result = sms_service.send_otp(phone, code)
+    return otp_response(db, result, code, otp)
 
 
 @router.post("/phone/login", response_model=AuthResponse)

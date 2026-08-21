@@ -221,11 +221,44 @@ sign in with it afterwards (an unlinked number can't be used to sign in or to
 create an account — that's deliberate, to stop throwaway-SIM signups from
 skipping e-mail verification entirely).
 
-SMS delivery is provider-agnostic: point `SMS_WEBHOOK_URL` at any gateway (or
-a small relay in front of one) that accepts a `{to, message}` JSON POST. With
-no webhook configured, the OTP is logged server-side **and** returned in the
-API response as `debug_code` — but only when `APP_ENV != production`, so this
-never leaks in a real deployment.
+Codes can be delivered over **WhatsApp or SMS**, and `OTP_CHANNEL` decides
+which is tried first:
+
+| `OTP_CHANNEL` | Behaviour |
+| --- | --- |
+| `auto` (default) | WhatsApp first, falling back to SMS if it fails |
+| `whatsapp` | WhatsApp only |
+| `sms` | SMS only |
+
+Configuring both channels gives automatic failover — useful because a number
+with no WhatsApp account still needs a text.
+
+**WhatsApp — Meta Cloud API** (recommended, and the quickest to get live in
+India, where an A2P SMS sender needs TRAI/DLT registration first):
+
+1. Create an app at [developers.facebook.com](https://developers.facebook.com)
+   and add the **WhatsApp** product.
+2. Copy the **Phone number ID** → `WHATSAPP_PHONE_NUMBER_ID`, and a permanent
+   System User token → `WHATSAPP_ACCESS_TOKEN`.
+3. In WhatsApp Manager → *Message templates*, create an **Authentication**
+   template named `otp_login` with the standard *Copy code* button, and wait
+   for approval. OTP text cannot be sent as free-form WhatsApp text — it must
+   go out as an approved authentication template, and the code has to fill
+   both the body parameter and the button parameter or Meta rejects the send.
+
+**WhatsApp or SMS — Twilio**: set `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`,
+then `TWILIO_WHATSAPP_FROM` for WhatsApp (their sandbox number works for
+testing) and/or `TWILIO_FROM_NUMBER` for SMS.
+
+**SMS — MSG91** (India): `MSG91_AUTH_KEY` + `MSG91_TEMPLATE_ID`.
+
+**SMS — any other gateway**: point `SMS_WEBHOOK_URL` at it (or a small relay
+in front of one) that accepts a `{to, message}` JSON POST.
+
+With **no** provider configured the code is logged server-side and returned in
+the API response as `debug_code` — but only when `APP_ENV != production`. In
+production the endpoint answers **503** rather than reporting a success for a
+message nothing tried to send.
 
 ### Password reset / Green PIN reset (e-mail)
 
@@ -316,8 +349,16 @@ npm run build            # full production build
    there — one service serves both the API and the built frontend.
 4. Set the remaining environment variables from `.env.example` on the
    service (`SECRET_KEY`, `COOKIE_SECURE=true`, `CORS_ORIGINS` if you split
-   frontend/backend into separate services, Google/SMTP/SMS credentials if
-   you want those features live, `STORAGE_*` for photo uploads).
+   frontend/backend into separate services, Google/SMTP credentials if you
+   want those features live, `STORAGE_*` for photo uploads).
+
+   **Phone sign-in needs its own variables here.** With none of
+   `WHATSAPP_*`, `TWILIO_*`, `MSG91_*` or `SMS_WEBHOOK_URL` set on the
+   Railway service, no code can be delivered and `/auth/phone/otp` returns
+   503 — see [Phone number (OTP) sign-in](#phone-number-otp-sign-in) for
+   which block to fill in. The container logs `No OTP provider configured`
+   on every attempt, which is the quickest way to confirm this is the
+   problem.
 5. On deploy, the container runs `python main.py migrate` before
    `python main.py server` (see the Dockerfile `CMD`) — migrations always
    apply before the new code starts serving traffic, and a failed migration

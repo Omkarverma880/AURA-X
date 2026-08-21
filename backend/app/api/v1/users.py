@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, File, UploadFile
 from sqlalchemy import select
 
+from app.api.v1.auth import otp_response
 from app.core.config import settings
 from app.core.deps import ClientCtx, CurrentAuth, DbSession
 from app.core.errors import BadRequest
@@ -14,7 +15,7 @@ from app.models.user import PhoneOtp, UserProfile
 from app.schemas.auth import OtpSentResponse, PhoneOtpRequest, PhoneVerifyRequest, ProfileUpdate, UserOut
 from app.schemas.common import MessageResponse
 from app.services import audit, auth as auth_service, phone_auth
-from app.services import sms as sms_service
+from app.services import messaging as sms_service
 from app.storage import storage
 from app.storage.images import process_upload
 
@@ -100,14 +101,10 @@ def start_phone_link(
     phone = phone_auth.normalise_phone(payload.phone)
     rate_limiter.check("phone_otp", f"{client.ip or 'unknown'}:{ctx.user_id}")
 
-    code, _ = phone_auth.start_phone_link(db, ctx.user, phone)
+    code, otp = phone_auth.start_phone_link(db, ctx.user, phone)
     db.commit()
-    sms_service.send_otp(phone, code)
-    return OtpSentResponse(
-        message=f"A verification code has been sent to {phone}.",
-        expires_in_minutes=settings.OTP_TTL_MINUTES,
-        debug_code=code if (not settings.sms_enabled and not settings.is_production) else None,
-    )
+    result = sms_service.send_otp(phone, code)
+    return otp_response(db, result, code, otp, destination=phone)
 
 
 @router.post("/me/phone/verify", response_model=UserOut)
