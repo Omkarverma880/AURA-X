@@ -1,23 +1,20 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Sparkles, Stars } from "@react-three/drei";
+import { Stars } from "@react-three/drei";
 import * as THREE from "three";
 
-import { GOLD } from "./AuraOrb";
+
 import { AURA_BUDGET, type AuraTier } from "./useAuraCapabilities";
 
 /**
  * Ambient depth: a starfield, a warm dust trail, and a cool cosmic haze far
  * behind the orb.
  *
- * IMPORTANT - drei `Sparkles` budget. This drei version mis-sizes the colour
- * buffer when `color` is given as a hex/THREE.Color (it multiplies the buffer
- * length by an extra factor of 3), and a *third* such instance reproducibly
- * blanks the whole canvas to black. Two are confirmed stable. AuraOrb already
- * uses one, this file uses the second, and the cool haze below is therefore a
- * hand-rolled THREE.Points cloud rather than a third Sparkles - which
- * sidesteps the bug entirely instead of relying on the two-instance limit
- * holding. Do not convert CosmicHaze back to <Sparkles>.
+ * No drei `Sparkles` anywhere in this scene, deliberately. Its jitter reads
+ * as twitchy rather than cinematic, and this drei version also mis-sizes the
+ * colour buffer when `color` is a hex/THREE.Color - a third such instance
+ * reproducibly blanked the whole canvas. Everything here is hand-rolled
+ * THREE.Points, which sidesteps both problems.
  */
 export function AuraParticles({ tier }: { tier: Exclude<AuraTier, "none"> }) {
   const budget = AURA_BUDGET[tier];
@@ -34,22 +31,8 @@ export function AuraParticles({ tier }: { tier: Exclude<AuraTier, "none"> }) {
         speed={0.3}
       />
 
-      {/* Warm dust drifting off to the left, like a comet tail the ring left
-          behind. (Sparkles instance 2 of 2 - see the note above.) */}
-      <Sparkles
-        count={budget.trailDust}
-        scale={[9, 5, 4]}
-        position={[-5, -0.5, -2]}
-        size={1.6}
-        speed={0.09}
-        color={GOLD}
-        opacity={0.55}
-        noise={1.2}
-      />
-
       {/* Energy trails sweeping in from both sides, the way a long exposure
-          catches something orbiting. Hand-rolled Points rather than Sparkles -
-          see the file header for why we cannot add more coloured Sparkles. */}
+          catches something orbiting. */}
       <GoldSwirl
         count={tier === "high" ? 520 : 180}
         position={[-3.6, -0.5, -1]}

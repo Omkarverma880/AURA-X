@@ -1,5 +1,8 @@
+import { Link } from "react-router-dom";
 import type { CSSProperties, ReactNode } from "react";
 import { HandCoins, TrendingUp, Target } from "lucide-react";
+
+import { AuraSigil } from "@/components/aura/AuraSigil";
 
 /**
  * Gold/black palette for every pre-auth screen (login, register, forgot/reset
@@ -49,11 +52,14 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
         <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-[var(--brand)]/10 blur-[100px]" />
         <div className="pointer-events-none absolute inset-0 opacity-[0.15] [background-image:radial-gradient(circle,white_1px,transparent_1px)] [background-size:28px_28px]" />
 
-        <div className="relative flex items-center gap-2.5">
-          <span className="text-lg font-semibold tracking-[0.2em]">
-            AURA <span className="text-[var(--brand)]">X</span>
+        {/* Also the way back out: /login and /register are otherwise dead
+            ends with no route to the public landing page. */}
+        <Link to="/" className="relative flex items-center gap-3 transition-opacity hover:opacity-80">
+          <AuraSigil size={30} />
+          <span className="text-lg font-light tracking-[0.2em]">
+            AURA <span className="font-semibold text-[var(--brand)]">X</span>
           </span>
-        </div>
+        </Link>
 
         <div className="relative space-y-6">
           <h1 className="text-4xl font-light leading-tight tracking-wide">

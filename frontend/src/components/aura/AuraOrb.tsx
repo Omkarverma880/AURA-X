@@ -1,19 +1,23 @@
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Sparkles } from "@react-three/drei";
 import * as THREE from "three";
 
-import { AURA_BUDGET, type AuraTier } from "./useAuraCapabilities";
+import { type AuraTier } from "./useAuraCapabilities";
 
 export const GOLD = "#e8a83c";
 export const GOLD_BRIGHT = "#ffd580";
 export const GOLD_PALE = "#fff2d6";
 
 /**
- * The Aura X centrepiece: a gold ring seen in perspective, with light
- * travelling around it and fragments drifting free of its rim.
+ * The Aura X centrepiece: a ring built out of light rather than geometry.
  *
- * Motion follows one rule - luxury is slow. Nothing here completes a cycle in
+ * A solid torus reads as CGI - too even, too clean. What makes the reference
+ * look photographic is that the ring is *made of particles*: a dense bright
+ * filament at the core, a warmer scatter around it, and a wide dusty halo,
+ * with brightness varying continuously around the circumference so parts of
+ * the rim burn hotter than others. That is what this builds.
+ *
+ * Motion follows one rule - luxury is slow. Nothing completes a cycle in
  * under twenty seconds, so the object reads as alive rather than animated.
  */
 export function AuraOrb({
@@ -25,37 +29,15 @@ export function AuraOrb({
   scrollProgress: React.RefObject<number>;
 }) {
   const group = useRef<THREE.Group>(null);
-  const arcA = useRef<THREE.Mesh>(null);
-  const arcB = useRef<THREE.Mesh>(null);
-  const shards = useRef<THREE.Group>(null);
+  const hot = useRef<THREE.Group>(null);
   const { mouse } = useThree();
-  const budget = AURA_BUDGET[tier];
-
-  // Fragments that have broken away from the ring. Positions are seeded once;
-  // the frame loop only eases them in and out along their own axis.
-  const fragments = useMemo(
-    () =>
-      Array.from({ length: tier === "high" ? 9 : 5 }, (_, i) => {
-        const angle = (i / (tier === "high" ? 9 : 5)) * Math.PI * 2;
-        return {
-          angle,
-          // Each fragment breathes on its own period so they never pulse in
-          // unison, which would read as a mechanical blink.
-          period: 9 + (i % 4) * 3.5,
-          phase: i * 1.7,
-          size: 0.02 + (i % 3) * 0.008,
-          arc: 0.06 + (i % 2) * 0.04,
-        };
-      }),
-    [tier],
-  );
 
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
     const progress = scrollProgress.current ?? 0;
 
     if (group.current) {
-      group.current.rotation.z = t * 0.05;
+      group.current.rotation.z = t * 0.035;
 
       // Parallax toward the cursor, heavily damped so it feels like weight
       // rather than a cursor-follower.
@@ -86,48 +68,19 @@ export function AuraOrb({
       group.current.scale.setScalar(breathe * (1 - progress * 0.25));
     }
 
-    // Light travelling around the rim: two arcs at different speeds, so the
-    // brighter one periodically laps the softer one.
-    if (arcA.current) arcA.current.rotation.z = -t * 0.16;
-    if (arcB.current) arcB.current.rotation.z = -t * 0.1 + 1.2;
-
-    if (shards.current) {
-      shards.current.children.forEach((shard, i) => {
-        const f = fragments[i];
-        if (!f) return;
-        // A slow triangle wave: drift out, hold, ease back to the rim.
-        const cycle = ((t + f.phase) % f.period) / f.period;
-        const out = Math.sin(cycle * Math.PI) ** 2;
-        const radius = 2.6 + out * 0.34;
-        shard.position.set(
-          Math.cos(f.angle) * radius,
-          Math.sin(f.angle) * radius,
-          out * 0.16,
-        );
-        const material = (shard as THREE.Mesh).material as THREE.MeshBasicMaterial;
-        material.opacity = 0.25 + (1 - out) * 0.6;
-      });
-    }
+    // The hot arc drifts around the rim independently of the ring's own
+    // rotation, so the bright region is never locked to the same particles.
+    if (hot.current) hot.current.rotation.z = -t * 0.045;
   });
+
+  const dense = tier === "high";
 
   return (
     <group ref={group} rotation={[0.5, 0, 0]}>
-      {/* The ring itself. */}
-      <mesh>
-        <torusGeometry args={[2.6, 0.018, 24, tier === "high" ? 220 : 110]} />
-        <meshStandardMaterial
-          color={GOLD}
-          emissive={GOLD_BRIGHT}
-          emissiveIntensity={0.85}
-          roughness={0.25}
-          metalness={0.7}
-        />
-      </mesh>
-
-      {/* Inner disc: barely-there smoked glass so the ring encloses a volume
-          rather than framing empty space. */}
-      <mesh position={[0, 0, -0.04]}>
-        <circleGeometry args={[2.58, 64]} />
+      {/* Smoked-glass interior: enough to seat the ring in a volume, sheer
+          enough to keep the starfield visible through it. */}
+      <mesh position={[0, 0, -0.05]}>
+        <circleGeometry args={[2.56, 64]} />
         <meshBasicMaterial
           color="#05060a"
           transparent
@@ -137,36 +90,112 @@ export function AuraOrb({
         />
       </mesh>
 
-      {/* Energy travelling the rim. */}
-      <mesh ref={arcA}>
-        <torusGeometry args={[2.63, 0.009, 16, 180, Math.PI * 1.1]} />
-        <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.45} />
-      </mesh>
-      <mesh ref={arcB}>
-        <torusGeometry args={[2.67, 0.004, 16, 180, Math.PI * 0.7]} />
-        <meshBasicMaterial color={GOLD_PALE} transparent opacity={0.3} />
-      </mesh>
-
-      {/* Fragments breaking away and reforming. */}
-      <group ref={shards}>
-        {fragments.map((f, i) => (
-          <mesh key={i}>
-            <boxGeometry args={[f.size * 3.5, f.size, f.size]} />
-            <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.7} />
-          </mesh>
-        ))}
+      {/* Three shells of dust, tightest and brightest first. Together they
+          read as one luminous filament with atmosphere around it. */}
+      <group ref={hot}>
+        <RingShell
+          count={dense ? 7000 : 1800}
+          spread={0.014}
+          size={0.011}
+          color="#ffeccb"
+          opacity={0.7}
+        />
+        <RingShell
+          count={dense ? 6200 : 1600}
+          spread={0.05}
+          size={0.02}
+          color={GOLD_BRIGHT}
+          opacity={0.8}
+        />
+        <RingShell
+          count={dense ? 4200 : 1000}
+          spread={0.19}
+          size={0.036}
+          color={GOLD}
+          opacity={0.34}
+        />
       </group>
-
-      {/* Fine gold dust hugging the rim. */}
-      <Sparkles
-        count={budget.ringDust}
-        scale={[6, 6, 0.3]}
-        size={2.2}
-        speed={0.12}
-        color={GOLD_BRIGHT}
-        opacity={0.8}
-        noise={0.4}
-      />
     </group>
+  );
+}
+
+const RING_RADIUS = 2.6;
+
+/**
+ * One shell of the ring: points scattered around the circumference with a
+ * Gaussian falloff away from the ideal circle.
+ *
+ * Per-point colour (not per-point size, which PointsMaterial cannot vary
+ * without a custom shader) carries the brightness modulation, so some arcs
+ * glow hot while others fade to embers. Stacking shells of different spreads
+ * is what produces the soft-to-sharp gradient a single shell cannot.
+ */
+function RingShell({
+  count,
+  spread,
+  size,
+  color,
+  opacity,
+}: {
+  count: number;
+  spread: number;
+  size: number;
+  color: string;
+  opacity: number;
+}) {
+  const geometry = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const base = new THREE.Color(color);
+
+    // Box-Muller: a normal distribution clusters points near the ideal circle
+    // and thins outward, which is what gives a filament rather than a band.
+    const gaussian = () => {
+      const u = Math.random() || 1e-6;
+      const v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    };
+
+    for (let i = 0; i < count; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const radial = gaussian() * spread;
+      const depth = gaussian() * spread;
+      const r = RING_RADIUS + radial;
+
+      positions[i * 3] = Math.cos(angle) * r;
+      positions[i * 3 + 1] = Math.sin(angle) * r;
+      positions[i * 3 + 2] = depth;
+
+      // Two overlapping waves of different periods keep the bright regions
+      // from repeating on an obvious interval.
+      const wave =
+        0.55 +
+        0.45 * Math.sin(angle * 1 + 0.8) * 0.6 +
+        0.35 * Math.sin(angle * 3 - 2.1) * 0.4;
+      const intensity = THREE.MathUtils.clamp(wave, 0.42, 1) * (0.78 + Math.random() * 0.42);
+
+      colors[i * 3] = base.r * intensity;
+      colors[i * 3 + 1] = base.g * intensity;
+      colors[i * 3 + 2] = base.b * intensity;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    return geo;
+  }, [count, spread, color]);
+
+  return (
+    <points geometry={geometry}>
+      <pointsMaterial
+        vertexColors
+        size={size}
+        sizeAttenuation
+        transparent
+        opacity={opacity}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
   );
 }

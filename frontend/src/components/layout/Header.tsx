@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Lock, LockOpen, Menu, Search, Bell, LogOut, Settings as SettingsIcon, User } from "lucide-react";
+import { AuraSigil } from "@/components/aura/AuraSigil";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFinancial, formatCountdown } from "@/contexts/FinancialContext";
 import { Avatar } from "@/components/ui/Avatar";
@@ -46,8 +47,11 @@ export function Header() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <Link to="/dashboard" className="flex items-center gap-2 md:hidden">
-          <span className="text-sm font-bold text-[var(--text-primary)]">Aura X</span>
+        <Link to="/dashboard" className="flex items-center gap-2.5 md:hidden">
+          <AuraSigil size={24} />
+          <span className="text-sm font-light tracking-[0.16em] text-[var(--text-primary)]">
+            AURA <span className="font-semibold text-[var(--brand)]">X</span>
+          </span>
         </Link>
 
         <button
@@ -119,7 +123,9 @@ export function Header() {
                 label="Sign out"
                 onClick={() => {
                   setMenuOpen(false);
-                  void logout().then(() => navigate("/login"));
+                  // Back to the public universe, not the sign-in form - /login has no
+                  // route onward to the landing page.
+                  void logout().then(() => navigate("/"));
                 }}
               />
             </div>

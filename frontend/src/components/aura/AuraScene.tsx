@@ -122,8 +122,8 @@ function SceneCanvas({
         {budget.bloom && (
           <EffectComposer>
             <Bloom
-              intensity={tier === "high" ? 0.85 : 0.6}
-              luminanceThreshold={0.62}
+              intensity={tier === "high" ? 1.05 : 0.75}
+              luminanceThreshold={0.45}
               luminanceSmoothing={0.25}
               mipmapBlur
             />

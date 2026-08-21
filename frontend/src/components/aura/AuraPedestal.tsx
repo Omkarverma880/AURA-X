@@ -45,25 +45,25 @@ export function AuraPedestal({ reflector }: { reflector: boolean }) {
           <mesh>
             <cylinderGeometry args={[tier.radius, tier.radius, tier.height, 72]} />
             <meshStandardMaterial
-              color="#0a0b10"
+              color="#08090e"
               emissive={GOLD}
-              emissiveIntensity={0.02}
-              roughness={0.28}
-              metalness={0.95}
+              emissiveIntensity={0.015}
+              roughness={0.14}
+              metalness={0.92}
             />
           </mesh>
 
           {/* The gold rim catching light at each step edge - all of the dais's
               warmth comes from these, not from the faces. */}
           <mesh position={[0, tier.height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[tier.radius, 0.006, 12, 96]} />
-            <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.55 - i * 0.09} />
+            <torusGeometry args={[tier.radius, 0.005, 12, 120]} />
+            <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.8 - i * 0.13} />
           </mesh>
         </group>
       ))}
 
       {/* The warm source at the centre of the dais. */}
-      <pointLight position={[0, -1.4, 0]} color={GOLD_BRIGHT} intensity={1.2} distance={2.6} />
+      <pointLight position={[0, -1.4, 0]} color={GOLD_BRIGHT} intensity={0.32} distance={1.7} />
       <mesh ref={core} position={[0, -1.44, 0]}>
         <sphereGeometry args={[0.05, 16, 16]} />
         <meshBasicMaterial color={GOLD_BRIGHT} transparent opacity={0.9} />
