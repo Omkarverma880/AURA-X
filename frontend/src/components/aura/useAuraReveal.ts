@@ -17,10 +17,20 @@ import { useEffect, useRef } from "react";
  * viewport at mount is revealed synchronously from its own geometry, and the
  * observer only handles what genuinely starts below the fold.
  *
+ * `deps` matters when the revealed content is rendered conditionally. This
+ * effect can only find elements that already exist, so on a page that shows a
+ * skeleton first - the dashboard - it ran while the container was still null,
+ * bailed out, and never set up an observer. The content then mounted at
+ * opacity 0 and stayed invisible permanently, which reads as "the page never
+ * finished loading". Pass whatever gates the render (the query result) so the
+ * scan re-runs once the real content exists.
+ *
  * The CSS honours prefers-reduced-motion by rendering `.aura-reveal` fully
  * visible with no transition, so this hook needs no guard of its own.
  */
-export function useAuraReveal<T extends HTMLElement = HTMLDivElement>() {
+export function useAuraReveal<T extends HTMLElement = HTMLDivElement>(
+  deps: readonly unknown[] = [],
+) {
   const containerRef = useRef<T>(null);
 
   useEffect(() => {
@@ -66,7 +76,8 @@ export function useAuraReveal<T extends HTMLElement = HTMLDivElement>() {
 
     pending.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 
   return containerRef;
 }

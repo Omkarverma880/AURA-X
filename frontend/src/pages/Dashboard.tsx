@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { Link } from "react-router-dom";
 import { Bell, Clock, Sparkles } from "lucide-react";
 
 import { CurrencyDisplay } from "@/components/shared/CurrencyDisplay";
@@ -36,7 +37,9 @@ export function DashboardPage() {
   const { data, isLoading } = useDashboard();
   const { isUnlocked, promptUnlock } = useFinancial();
   const { data: trend } = useExpenseTrend(6, isUnlocked);
-  const revealRef = useAuraReveal<HTMLDivElement>();
+  // Re-scan once the dashboard data arrives: the revealed content does not
+  // exist while the skeleton is on screen.
+  const revealRef = useAuraReveal<HTMLDivElement>([data]);
 
   return (
     // Full-bleed: cancels AppShell's main padding (px-4 pb-24 pt-5 /
@@ -54,7 +57,11 @@ export function DashboardPage() {
             <OverviewGrid snapshot={data.snapshot} />
 
             {data.snapshot.net_savings !== null && (
-              <div className="aura-panel flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
+              // Savings is an analytics figure, so the card opens Analytics.
+              <Link
+                to="/analytics"
+                className="aura-panel aura-panel-interactive aura-glow flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6"
+              >
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--aura-text-faint)]">
                     Net savings this month
@@ -77,7 +84,7 @@ export function DashboardPage() {
                     {data.snapshot.savings_rate.toFixed(0)}% savings rate
                   </span>
                 )}
-              </div>
+              </Link>
             )}
 
             <Suspense fallback={<div className="aura-panel h-56 animate-pulse" />}>
