@@ -121,7 +121,7 @@ function SceneCanvas({
         {/* Ball and dais move as one unit: lifted so the dais clears the
             module shelf, and scaled down because the dais now sits a full
             sphere-radius below the ring rather than inside it. */}
-        <group position={[0, 1.0, 0]} scale={0.74}>
+        <group position={[0, 1.15, 0]} scale={0.72}>
           <AuraOrb tier={tier} scrollProgress={scrollProgress} />
           <AuraPedestal />
         </group>

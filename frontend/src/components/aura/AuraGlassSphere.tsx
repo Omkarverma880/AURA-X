@@ -13,7 +13,7 @@ import * as THREE from "three";
  *
  * Additive and depth-write-free, so the starfield still shows through it.
  */
-export function AuraGlassSphere({ radius = 2.42 }: { radius?: number }) {
+export function AuraGlassSphere({ radius = 2.55 }: { radius?: number }) {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -23,7 +23,7 @@ export function AuraGlassSphere({ radius = 2.42 }: { radius?: number }) {
         side: THREE.FrontSide,
         uniforms: {
           uRim: { value: new THREE.Color("#ffd9a1") },
-          uCore: { value: new THREE.Color("#122033") },
+          uCore: { value: new THREE.Color("#16233a") },
         },
         vertexShader: /* glsl */ `
           varying vec3 vNormal;
@@ -45,13 +45,15 @@ export function AuraGlassSphere({ radius = 2.42 }: { radius?: number }) {
             // 0 facing the camera, 1 at the silhouette.
             float fresnel = 1.0 - clamp(dot(normalize(vNormal), normalize(vView)), 0.0, 1.0);
 
-            // A high exponent keeps the body of the sphere almost perfectly
-            // clear and concentrates the light into a thin edge.
-            float rim = pow(fresnel, 4.5);
-            float body = pow(fresnel, 1.6) * 0.09;
+            // A low exponent spreads the highlight into a broad glassy
+            // sheen. A sharp one drew a hard edge that read as a *second*
+            // circle just inside the gold ring, which is exactly the effect
+            // we do not want - there is one sphere, so one silhouette.
+            float rim = pow(fresnel, 2.2);
+            float sheen = pow(fresnel, 1.1) * 0.16;
 
-            vec3 colour = uCore * body + uRim * rim * 0.85;
-            float alpha = clamp(body + rim * 0.9, 0.0, 1.0);
+            vec3 colour = uCore * sheen + uRim * rim * 0.34;
+            float alpha = clamp(sheen + rim * 0.4, 0.0, 1.0);
 
             gl_FragColor = vec4(colour, alpha);
           }

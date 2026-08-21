@@ -24,10 +24,13 @@ export function AuraPedestal() {
 
   const tiers = useMemo(
     () => [
-      { radius: 1.75, height: 0.1, y: -2.72 },
-      { radius: 2.2, height: 0.08, y: -2.83 },
-      { radius: 2.7, height: 0.07, y: -2.93 },
-      { radius: 3.2, height: 0.06, y: -3.02 },
+      // y is the centre; each tier's top is height/2 above it. Tops are
+      // spaced closer than the heights, so consecutive tiers overlap and
+      // leave no gap between steps.
+      { radius: 1.9, height: 0.24, y: -2.79 },
+      { radius: 2.4, height: 0.24, y: -2.97 },
+      { radius: 2.9, height: 0.22, y: -3.14 },
+      { radius: 3.4, height: 0.2, y: -3.3 },
     ],
     [],
   );
@@ -52,7 +55,7 @@ export function AuraPedestal() {
 
           {/* The gold rim at each step edge - the dais's only light source. */}
           <mesh position={[0, tier.height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[tier.radius, 0.005, 12, 120]} />
+            <torusGeometry args={[tier.radius, 0.008, 12, 128]} />
             <meshBasicMaterial
               color={i === 0 ? GOLD_BRIGHT : GOLD}
               transparent
@@ -67,7 +70,7 @@ export function AuraPedestal() {
       {/* Where the ball meets the dais: a warm pool of contact light.
           Textured with the soft radial sprite - an untextured circle renders
           as a flat opaque gold plate, which is exactly what it looked like. */}
-      <mesh ref={core} position={[0, -2.66, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh ref={core} position={[0, -2.65, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[3.4, 3.4]} />
         <meshBasicMaterial
           map={softDotTexture()}
@@ -84,7 +87,7 @@ export function AuraPedestal() {
           a second time into a 1024px target every frame, which was the single
           largest cost here and the main source of the stutter. The fog and
           vignette carry the depth instead. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.06, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.42, 0]}>
         <planeGeometry args={[40, 40]} />
         <meshBasicMaterial color="#04050a" />
       </mesh>
