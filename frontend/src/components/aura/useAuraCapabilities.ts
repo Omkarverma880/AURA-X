@@ -105,16 +105,14 @@ export const AURA_BUDGET = {
     stars: 2800,
     ringDust: 140,
     trailDust: 220,
-    dpr: [1, 1.75] as [number, number],
-    reflector: true,
+    dpr: [1, 1.4] as [number, number],
     bloom: true,
   },
   low: {
     stars: 700,
     ringDust: 45,
     trailDust: 60,
-    dpr: [1, 1.25] as [number, number],
-    reflector: false,
+    dpr: [1, 1.1] as [number, number],
     bloom: true,
   },
 } as const;

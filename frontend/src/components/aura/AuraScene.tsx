@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
@@ -25,10 +25,15 @@ export function AuraScene() {
   // state, so scrolling never triggers a React render.
   const scrollProgress = useRef(0);
 
+  const [inView, setInView] = useState(true);
+
   useEffect(() => {
     const onScroll = () => {
       const heroHeight = window.innerHeight;
       scrollProgress.current = Math.min(1, window.scrollY / heroHeight);
+      // Past ~1.4 viewports the scene is completely hidden behind the opaque
+      // sections below, so there is nothing to gain from still drawing it.
+      setInView(window.scrollY < heroHeight * 1.4);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -47,7 +52,7 @@ export function AuraScene() {
 
   return (
     <div className="fixed inset-0 z-0">
-      <SceneCanvas tier={tier} scrollProgress={scrollProgress} />
+      <SceneCanvas tier={tier} scrollProgress={scrollProgress} active={inView} />
     </div>
   );
 }
@@ -81,9 +86,11 @@ function ResponsiveCamera() {
 function SceneCanvas({
   tier,
   scrollProgress,
+  active,
 }: {
   tier: Exclude<AuraTier, "none">;
   scrollProgress: React.RefObject<number>;
+  active: boolean;
 }) {
   const budget = AURA_BUDGET[tier];
 
@@ -92,9 +99,9 @@ function SceneCanvas({
       camera={{ position: [0, 0.25, 8.9], fov: 45 }}
       dpr={budget.dpr}
       gl={{ antialias: tier === "high", powerPreference: "high-performance" }}
-      // The hero is decorative; stop rendering entirely when the tab is
-      // hidden or the canvas is scrolled off screen.
-      frameloop="always"
+      // The hero is decorative: once it is scrolled out of sight the loop
+      // stops completely rather than burning a frame budget nobody can see.
+      frameloop={active ? "always" : "never"}
       onCreated={(state) => {
         state.gl.toneMapping = THREE.ACESFilmicToneMapping;
         state.gl.toneMappingExposure = 1.15;
@@ -111,12 +118,12 @@ function SceneCanvas({
       <Suspense fallback={null}>
         <AuraParticles tier={tier} />
 
-        {/* The orb and its dais are lifted and scaled down slightly as a unit
-            so the dais clears the module shelf at the foot of the hero -
-            without this the outermost tier covers the last two modules. */}
-        <group position={[0, 0.42, 0]} scale={0.92}>
+        {/* Ball and dais move as one unit: lifted so the dais clears the
+            module shelf, and scaled down because the dais now sits a full
+            sphere-radius below the ring rather than inside it. */}
+        <group position={[0, 1.0, 0]} scale={0.74}>
           <AuraOrb tier={tier} scrollProgress={scrollProgress} />
-          <AuraPedestal reflector={budget.reflector} />
+          <AuraPedestal />
         </group>
 
         {budget.bloom && (

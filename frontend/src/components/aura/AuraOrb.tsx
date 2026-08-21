@@ -2,14 +2,15 @@ import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
+import { AuraGlassSphere } from "./AuraGlassSphere";
 import { softDotTexture } from "./softDot";
 import { type AuraTier } from "./useAuraCapabilities";
 
 export const GOLD = "#e8a83c";
 export const GOLD_BRIGHT = "#ffd580";
 export const GOLD_PALE = "#fff2d6";
-/** The cool counterpoint - a cold nebula tone, never a saturated blue. */
-export const AURA_BLUE = "#7fa6ff";
+/** The cool end of the gold range - an ember, never an actual blue. */
+export const AURA_EMBER = "#ffb15c";
 
 /**
  * The Aura X centrepiece: a glass ring lit from within.
@@ -20,9 +21,9 @@ export const AURA_BLUE = "#7fa6ff";
  * them as noise. Second, every particle is a soft radial sprite rather than
  * PointsMaterial's default hard square, so overlapping dust blends into light.
  *
- * Colour drifts slowly between warm gold and a cold nebula blue around the
- * circumference, which is what gives the ring its sense of depth and
- * temperature instead of a flat band of yellow.
+ * Colour drifts between pale gold and a deeper ember around the
+ * circumference, which gives the ring depth without ever leaving the warm
+ * range.
  *
  * Motion follows one rule - luxury is slow.
  */
@@ -81,17 +82,9 @@ export function AuraOrb({
 
   return (
     <group ref={group} rotation={[0.5, 0, 0]}>
-      {/* Smoked-glass interior - sheer enough to keep stars visible. */}
-      <mesh position={[0, 0, -0.05]}>
-        <circleGeometry args={[2.56, 64]} />
-        <meshBasicMaterial
-          color="#05070d"
-          transparent
-          opacity={0.3}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {/* The glass ball the ring encircles - a Fresnel shell, so the middle
+          stays clear and only the silhouette catches light. */}
+      <AuraGlassSphere radius={2.42} />
 
       {/* The glass rim itself. Thin, bright, unbroken - this is the structure
           the dust decorates, and the reason the ring reads as an object. */}
@@ -164,7 +157,7 @@ function RingShell({
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const gold = new THREE.Color(GOLD_BRIGHT);
-    const blue = new THREE.Color(AURA_BLUE);
+    const ember = new THREE.Color(AURA_EMBER);
     const mixed = new THREE.Color();
 
     // Box-Muller: clusters points near the ideal circle and thins outward,
@@ -186,7 +179,7 @@ function RingShell({
       // One slow wave for temperature, another for brightness, on different
       // periods so neither repeats on an obvious interval.
       const cool = (Math.sin(angle * 1.0 - 1.1) + 1) / 2;
-      mixed.copy(gold).lerp(blue, THREE.MathUtils.clamp(cool * (1 - warmth), 0, 0.75));
+      mixed.copy(gold).lerp(ember, THREE.MathUtils.clamp(cool * (1 - warmth), 0, 0.75));
 
       const brightness =
         THREE.MathUtils.clamp(0.55 + 0.45 * Math.sin(angle * 2 + 0.6), 0.35, 1) *
