@@ -56,6 +56,7 @@ class ProfileOut(ORMModel):
 
 class ProfileUpdate(BaseModel):
     display_name: str | None = Field(default=None, max_length=120)
+    username: str | None = Field(default=None, max_length=32)
     full_name: str | None = Field(default=None, max_length=120)
     phone: str | None = Field(default=None, max_length=32)
     date_of_birth: date | None = None
@@ -87,6 +88,7 @@ class UserOut(ORMModel):
     google_linked: bool = False
     phone: str | None = None
     phone_verified: bool = False
+    username: str | None = None
 
 
 class PhoneOtpRequest(BaseModel):
@@ -103,6 +105,17 @@ class PhoneLoginRequest(BaseModel):
 
 class PhoneVerifyRequest(BaseModel):
     code: str = Field(min_length=4, max_length=8)
+
+
+class RecoverPasswordRequest(BaseModel):
+    """Reset by identifier, with no token and no delivery channel.
+
+    ``identifier`` is an e-mail address, phone number or username - whichever
+    the user remembers.
+    """
+
+    identifier: str = Field(min_length=3, max_length=320)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class OtpSentResponse(BaseModel):

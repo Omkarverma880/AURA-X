@@ -269,6 +269,24 @@ def _json(response: httpx.Response):
         return None
 
 
+def redact_secrets(text: str) -> str:
+    """Strip any configured credential that a provider quoted back at us.
+
+    Meta echoes the offending token verbatim when it is malformed, and these
+    strings end up in the application log and in operator-facing reports, so
+    no secret is allowed to survive into one.
+    """
+    for secret in (
+        settings.WHATSAPP_ACCESS_TOKEN,
+        settings.TWILIO_AUTH_TOKEN,
+        settings.MSG91_AUTH_KEY,
+        settings.SMS_API_KEY,
+    ):
+        if secret and len(secret) > 4:
+            text = text.replace(secret, f"...{secret[-4:]}")
+    return text
+
+
 def _extract_error(response: httpx.Response) -> str:
     """Pull the human-readable reason out of a provider's error body."""
     body = _json(response)
@@ -277,11 +295,11 @@ def _extract_error(response: httpx.Response) -> str:
         if isinstance(error, dict):
             detail = error.get("error_user_msg") or error.get("message")
             if detail:
-                return str(detail)
+                return redact_secrets(str(detail))
         for key in ("message", "detail", "error_message"):
             if body.get(key):
-                return str(body[key])
+                return redact_secrets(str(body[key]))
     text = (response.text or "").strip()
     if text:
-        return f"HTTP {response.status_code}: {text[:200]}"
+        return redact_secrets(f"HTTP {response.status_code}: {text[:200]}")
     return f"HTTP {response.status_code}"

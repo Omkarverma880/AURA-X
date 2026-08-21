@@ -31,6 +31,7 @@ export interface User {
   google_linked: boolean;
   phone: string | null;
   phone_verified: boolean;
+  username: string | null;
 }
 
 export interface FinancialStatus {

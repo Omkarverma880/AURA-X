@@ -29,6 +29,9 @@ RULES: dict[str, Rule] = {
     "password_reset": Rule(limit=5, window_seconds=3600),
     "pin_verify": Rule(limit=15, window_seconds=300),
     "phone_otp": Rule(limit=8, window_seconds=600),
+    # Tighter than password_reset: this flow hands out a password on a correct
+    # identifier alone, so guessing attempts get very little room.
+    "account_recovery": Rule(limit=5, window_seconds=3600),
     "upload": Rule(limit=60, window_seconds=300),
     "default": Rule(limit=300, window_seconds=60),
 }

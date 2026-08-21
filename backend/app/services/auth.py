@@ -86,6 +86,14 @@ def create_user(
     db.add(user)
     db.flush()
 
+    # Assigned here rather than left to the user, so every account has an
+    # identifier it can be recovered by from the very first login. Imported
+    # locally: account_recovery imports this module for password helpers.
+    from app.services.account_recovery import suggest_username
+
+    user.username = suggest_username(db, user.full_name)
+    db.flush()
+
     db.add(
         AuthAccount(
             user_id=user.id,

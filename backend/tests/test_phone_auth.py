@@ -139,3 +139,55 @@ def test_resend_before_cooldown_is_rate_limited(alice, client):
     alice.post("/api/v1/users/me/phone/otp", json={"phone": "+919876543210"})
     second = alice.post("/api/v1/users/me/phone/otp", json={"phone": "+919876543210"})
     assert second.status_code == 429
+
+
+# --- Contact number (no OTP) --------------------------------------------
+
+
+def test_a_contact_number_can_be_saved_without_any_verification(alice):
+    response = alice.patch("/api/v1/users/me", json={"phone": "+919005872572"})
+    assert response.status_code == 200
+    assert response.json()["profile"]["phone"] == "+919005872572"
+
+
+def test_a_saved_contact_number_does_not_grant_sign_in(alice, client):
+    """The whole point of the split: profile.phone is contact data, while
+    User.phone is an identity and stays gated behind OTP. Otherwise anyone
+    could type someone else's number and inherit their account."""
+    alice.patch("/api/v1/users/me", json={"phone": "+919005872572"})
+
+    me = alice.get("/api/v1/users/me").json()
+    assert me["profile"]["phone"] == "+919005872572"
+    assert me["phone"] is None          # sign-in identity untouched
+    assert me["phone_verified"] is False
+
+    client.cookies.clear()
+    code = client.post(
+        "/api/v1/auth/phone/otp", json={"phone": "+919005872572"}
+    ).json()["debug_code"]
+    login = client.post(
+        "/api/v1/auth/phone/login", json={"phone": "+919005872572", "code": code}
+    )
+    # Signs up a brand-new account rather than handing over Alice's.
+    assert login.status_code == 200
+    assert login.json()["user"]["id"] != alice.id
+
+
+def test_two_users_may_save_the_same_contact_number(alice, bob):
+    """Unlike the verified sign-in identity, contact data is not an identity
+    claim - a shared family number must not 409."""
+    assert alice.patch("/api/v1/users/me", json={"phone": "+919005872572"}).status_code == 200
+    assert bob.patch("/api/v1/users/me", json={"phone": "+919005872572"}).status_code == 200
+
+
+def test_a_malformed_contact_number_is_rejected(alice):
+    response = alice.patch("/api/v1/users/me", json={"phone": "9005872572"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_phone"
+
+
+def test_a_contact_number_can_be_cleared(alice):
+    alice.patch("/api/v1/users/me", json={"phone": "+919005872572"})
+    response = alice.patch("/api/v1/users/me", json={"phone": ""})
+    assert response.status_code == 200
+    assert response.json()["profile"]["phone"] is None

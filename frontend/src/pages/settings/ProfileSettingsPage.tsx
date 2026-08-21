@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { Camera, CheckCircle2, Smartphone, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input, Label, Select, Textarea } from "@/components/ui/Input";
+import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { Avatar } from "@/components/ui/Avatar";
 import { PhoneInput } from "@/components/shared/PhoneInput";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +22,7 @@ const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SGD"];
 interface ProfileForm {
   full_name: string;
   display_name: string;
+  username: string;
   date_of_birth: string;
   currency: string;
   bio: string;
@@ -34,10 +35,16 @@ export function ProfileSettingsPage() {
   const uploadAvatar = useUploadAvatar();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // PhoneInput is a controlled component, so the contact number lives outside
+  // react-hook-form - which also means tracking its dirtiness separately.
+  const [phone, setPhone] = useState(user?.profile?.phone ?? "");
+  const [phoneEdited, setPhoneEdited] = useState(false);
+
   const { register, handleSubmit, formState: { isSubmitting, isDirty } } = useForm<ProfileForm>({
     defaultValues: {
       full_name: user?.full_name ?? "",
       display_name: user?.profile?.display_name ?? "",
+      username: user?.username ?? "",
       date_of_birth: user?.profile?.date_of_birth ?? "",
       currency: user?.profile?.currency ?? "INR",
       bio: user?.profile?.bio ?? "",
@@ -48,11 +55,16 @@ export function ProfileSettingsPage() {
     // Empty strings from untouched date/optional fields must not be sent as
     // "" - the backend's date_of_birth is a real date field and would 422 on
     // an empty string rather than treating it as "not provided".
-    const payload = Object.fromEntries(
+    const payload: Record<string, unknown> = Object.fromEntries(
       Object.entries(values).filter(([, v]) => v !== ""),
     );
+    // Added after the filter above on purpose: an empty phone means "clear my
+    // number", which the filter would otherwise drop.
+    if (phoneEdited) payload.phone = phone;
+
     try {
       await updateProfile.mutateAsync(payload);
+      setPhoneEdited(false);
       toast({ title: "Profile updated", variant: "success" });
     } catch (error) {
       toast({ title: "Could not update profile", description: isApiError(error) ? error.message : undefined, variant: "error" });
@@ -127,10 +139,30 @@ export function ProfileSettingsPage() {
               </div>
             </div>
             <div>
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" {...register("username")} />
+              <FieldHint>
+                Lower-case letters, numbers and underscores. You can use this to
+                reset your password if you forget which e-mail you signed up with.
+              </FieldHint>
+            </div>
+            <div>
+              <Label htmlFor="contact_phone">Phone number</Label>
+              <PhoneInput
+                id="contact_phone"
+                value={phone}
+                onChange={(next) => { setPhone(next); setPhoneEdited(true); }}
+              />
+              <FieldHint>
+                Saved to your profile as a contact number. To use it to sign in,
+                verify it under Phone sign-in below.
+              </FieldHint>
+            </div>
+            <div>
               <Label htmlFor="bio">Bio</Label>
               <Textarea id="bio" rows={2} {...register("bio")} />
             </div>
-            <Button type="submit" loading={isSubmitting} disabled={!isDirty}>
+            <Button type="submit" loading={isSubmitting} disabled={!isDirty && !phoneEdited}>
               Save changes
             </Button>
           </form>

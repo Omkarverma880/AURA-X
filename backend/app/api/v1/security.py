@@ -6,8 +6,9 @@ import uuid
 
 from fastapi import APIRouter
 
+from app.core.config import settings
 from app.core.deps import ClientCtx, CurrentAuth, DbSession
-from app.core.errors import BadRequest, NotFound
+from app.core.errors import BadRequest, NotFound, ServiceUnavailable
 from app.core.rate_limit import rate_limiter
 from app.models.enums import TokenPurpose
 from app.schemas.auth import (
@@ -64,6 +65,12 @@ def set_green_pin(payload: SetPinRequest, db: DbSession, ctx: CurrentAuth) -> Me
 def forgot_green_pin(db: DbSession, ctx: CurrentAuth, client: ClientCtx) -> MessageResponse:
     """Mail a single-use PIN reset link to the verified account address."""
     rate_limiter.check("password_reset", f"pin:{ctx.user_id}")
+    if not settings.smtp_enabled:
+        raise ServiceUnavailable(
+            "PIN reset e-mail is not set up on this server yet. "
+            "Please contact support.",
+            code="email_provider_missing",
+        )
     token = auth_service.issue_verification_token(db, ctx.user_id, TokenPurpose.PIN_RESET, hours=1)
     db.commit()
     email_service.send_pin_reset(ctx.user.email, token, ctx.user.full_name)

@@ -8,13 +8,13 @@ from sqlalchemy import select
 from app.api.v1.auth import otp_response
 from app.core.config import settings
 from app.core.deps import ClientCtx, CurrentAuth, DbSession
-from app.core.errors import BadRequest
+from app.core.errors import BadRequest, Conflict
 from app.core.rate_limit import rate_limiter
 from app.models.enums import AuditAction
-from app.models.user import PhoneOtp, UserProfile
+from app.models.user import PhoneOtp, User, UserProfile
 from app.schemas.auth import OtpSentResponse, PhoneOtpRequest, PhoneVerifyRequest, ProfileUpdate, UserOut
 from app.schemas.common import MessageResponse
-from app.services import audit, auth as auth_service, phone_auth
+from app.services import account_recovery, audit, auth as auth_service, phone_auth
 from app.services import messaging as sms_service
 from app.storage import storage
 from app.storage.images import process_upload
@@ -55,6 +55,26 @@ def update_profile(payload: ProfileUpdate, db: DbSession, ctx: CurrentAuth) -> U
         ctx.user.full_name = data.pop("full_name").strip()
     else:
         data.pop("full_name", None)
+
+    if "username" in data:
+        raw = (data.pop("username") or "").strip()
+        if raw:
+            candidate = account_recovery.normalise_username(raw)
+            clash = db.execute(
+                select(User).where(User.username == candidate, User.id != ctx.user_id)
+            ).scalar_one_or_none()
+            if clash is not None:
+                raise Conflict("That username is already taken.")
+            ctx.user.username = candidate
+
+    if "phone" in data:
+        # A contact number, not a sign-in credential. Stored unverified and
+        # deliberately kept on the profile rather than User.phone, which is
+        # the sign-in identity and stays gated behind OTP verification -
+        # otherwise anyone could type someone else's number and inherit
+        # their account.
+        raw = (data.pop("phone") or "").strip()
+        profile.phone = phone_auth.normalise_phone(raw) if raw else None
 
     for field, value in data.items():
         if field == "currency" and value:

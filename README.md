@@ -260,11 +260,67 @@ the API response as `debug_code` — but only when `APP_ENV != production`. In
 production the endpoint answers **503** rather than reporting a success for a
 message nothing tried to send.
 
+#### Diagnosing delivery
+
+```bash
+python main.py check-otp                    # what is configured + probe credentials
+python main.py check-otp +919876543210      # ...and send a real test code
+```
+
+It reports which providers are active and in what order, probes each one's
+credentials against the provider's own API, and — given a number — sends a
+live code and prints exactly what the gateway said back. Run it in Railway's
+shell to test the deployed environment rather than a local guess at it. No
+secret is ever printed: credentials are masked, and anything a provider
+quotes back (Meta echoes a malformed token verbatim) is redacted before it
+reaches the log or the report.
+
+### Account recovery without a delivery channel
+
+`POST /auth/recover-password` resets a password from an identifier alone — an
+e-mail address, phone number or username — with no token and no message sent.
+It exists so the app stays usable while no SMTP or SMS provider is configured.
+
+**Understand the trade-off before relying on it.** An identifier names an
+account but does not prove control of it, so *anyone who knows a user's e-mail
+address can reset that user's password*. The username is there to tell
+accounts apart, not to authenticate — it is not a secret. Prefer the
+token-by-e-mail flow below once SMTP is configured.
+
+What is still defended, since none of it needs a delivery channel:
+
+- a wrong identifier and a real one get byte-identical responses, so the
+  endpoint cannot be used to enumerate accounts;
+- password strength is validated *before* the lookup, so the error cannot
+  become an existence oracle;
+- attempts are capped per caller IP **and** per identifier (5/hour each);
+- every reset is written to the audit log;
+- all existing sessions are revoked, so a reset always evicts whoever else was
+  signed in.
+
+Each account gets a username automatically from the first word of its name
+(`Omkar Sunar Verma` → `omkar`, colliding handles get a numeric suffix), and
+users can change it under **Settings → Profile**.
+
 ### Password reset / Green PIN reset (e-mail)
 
 Set `SMTP_HOST` (+ `SMTP_USER`/`SMTP_PASSWORD` if required) to send real
 e-mail. Without it, reset/verification links are written to the backend log
 instead — convenient for local development, never used in production.
+
+**Password reset does not work until this is set.** With no SMTP host,
+`/auth/forgot-password` and the Green PIN reset answer **503**
+(`email_provider_missing`) rather than promising a link that nothing will
+send. The check runs *before* the account lookup, so it still reveals nothing
+about which addresses are registered.
+
+Any SMTP provider works; Resend and Brevo both have free tiers big enough for
+a personal deployment. Verify the setup with:
+
+```bash
+python main.py check-email                  # config + connect + authenticate
+python main.py check-email you@example.com  # ...and send a real test message
+```
 
 ---
 

@@ -116,7 +116,12 @@ def test_state_change_requires_csrf_header(client, alice):
     assert response.json()["error"]["code"] == "csrf_failed"
 
 
-def test_forgot_password_does_not_leak_account_existence(client, alice):
+def test_forgot_password_does_not_leak_account_existence(monkeypatch, client, alice):
+    # A configured SMTP host is the precondition for the 200 path: without
+    # one the endpoint reports the misconfiguration instead (503), which is
+    # covered separately below.
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com", raising=False)
+
     known = client.post("/api/v1/auth/forgot-password", json={"email": alice.email})
     unknown = client.post("/api/v1/auth/forgot-password", json={"email": "ghost@example.com"})
     assert known.status_code == unknown.status_code == 200
@@ -208,3 +213,38 @@ def test_providers_endpoint_reports_google_state(client):
 
 def test_google_start_is_disabled_without_configuration(client):
     assert client.get("/api/v1/auth/google/start").status_code == 400
+
+
+def test_forgot_password_reports_unconfigured_smtp_instead_of_a_false_promise(
+    monkeypatch, client, alice
+):
+    """It used to answer "a reset link is on its way" with no SMTP host set,
+    so every reset silently vanished."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "", raising=False)
+
+    response = client.post("/api/v1/auth/forgot-password", json={"email": alice.email})
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "email_provider_missing"
+
+
+def test_the_smtp_guard_still_hides_whether_an_account_exists(
+    monkeypatch, client, alice
+):
+    """The guard runs before the account lookup, so a registered and an
+    unknown address must be indistinguishable either way."""
+    monkeypatch.setattr(settings, "SMTP_HOST", "", raising=False)
+    known = client.post("/api/v1/auth/forgot-password", json={"email": alice.email})
+    unknown = client.post(
+        "/api/v1/auth/forgot-password", json={"email": "nobody@example.com"}
+    )
+    assert known.status_code == unknown.status_code == 503
+    assert known.json() == unknown.json()
+
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com", raising=False)
+    known = client.post("/api/v1/auth/forgot-password", json={"email": alice.email})
+    unknown = client.post(
+        "/api/v1/auth/forgot-password", json={"email": "nobody@example.com"}
+    )
+    assert known.status_code == unknown.status_code == 200
+    assert known.json() == unknown.json()

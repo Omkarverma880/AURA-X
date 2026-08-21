@@ -27,13 +27,14 @@ from app.schemas.auth import (
     OtpSentResponse,
     PhoneLoginRequest,
     PhoneOtpRequest,
+    RecoverPasswordRequest,
     RegisterRequest,
     ResetPasswordRequest,
     UserOut,
     VerifyEmailRequest,
 )
 from app.schemas.common import MessageResponse
-from app.services import audit, auth as auth_service, email as email_service, green_pin
+from app.services import account_recovery, audit, auth as auth_service, email as email_service, green_pin
 from app.services import phone_auth
 from app.services import messaging as sms_service
 
@@ -252,6 +253,18 @@ def forgot_password(
     endpoint cannot be used to enumerate accounts.
     """
     rate_limiter.check("password_reset", client.ip or "unknown")
+
+    # Checked before the account lookup, so this leaks nothing about who is
+    # registered - it reports a server misconfiguration, not user data.
+    # Without it an unconfigured SMTP host makes every reset silently vanish
+    # while the endpoint still claims a link is on its way.
+    if not settings.smtp_enabled:
+        raise ServiceUnavailable(
+            "Password reset e-mail is not set up on this server yet. "
+            "Please contact support.",
+            code="email_provider_missing",
+        )
+
     generic = MessageResponse(
         message="If an account exists for that e-mail, a reset link is on its way."
     )
@@ -265,6 +278,47 @@ def forgot_password(
     )
     db.commit()
     email_service.send_password_reset(user.email, token, user.full_name)
+    return generic
+
+
+@router.post("/recover-password", response_model=MessageResponse)
+def recover_password(
+    payload: RecoverPasswordRequest, db: DbSession, client: ClientCtx
+) -> MessageResponse:
+    """Reset a password from an identifier alone - no token, no e-mail.
+
+    A deliberately weaker path than /forgot-password, kept usable while no
+    SMTP or SMS provider is configured: an e-mail, phone number or username
+    names an account but does not prove control of it. See
+    services/account_recovery.py for what is and is not defended here.
+    """
+    identifier = payload.identifier.strip().lower()
+    # Capped per caller *and* per identifier, so neither a single IP working
+    # through a list nor a botnet hammering one account gets many attempts.
+    rate_limiter.check("account_recovery", client.ip or "unknown")
+    rate_limiter.check("account_recovery", f"id:{identifier}")
+
+    generic = MessageResponse(
+        message="If that account exists, its password has been updated. "
+        "You can now sign in with the new password."
+    )
+
+    user = account_recovery.recover_password(db, identifier, payload.new_password)
+    if user is None:
+        logger.info("Account recovery found no match")
+        return generic
+
+    audit.record(
+        db,
+        user_id=user.id,
+        action=AuditAction.UPDATE.value,
+        entity_type="user",
+        entity_id=user.id,
+        summary="Password reset through account recovery",
+        ip_address=client.ip,
+        user_agent=client.user_agent,
+    )
+    db.commit()
     return generic
 
 

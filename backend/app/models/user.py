@@ -33,6 +33,10 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: Short handle, always lower-cased. Used to tell accounts apart during
+    #: password recovery when someone does not recall which e-mail they signed
+    #: up with. An identifier, not a secret - it authenticates nothing.
+    username: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
     #: Alternate sign-in identifier, E.164 format (e.g. +919876543210). Only
     #: usable for login once verified via OTP - see PhoneOtp.
     phone: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)

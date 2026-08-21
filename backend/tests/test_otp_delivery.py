@@ -219,3 +219,27 @@ def test_successful_send_tells_the_client_which_channel_to_check(
     assert "WhatsApp" in body["message"]
     # The real code never leaves the server once a provider is carrying it.
     assert body["debug_code"] is None
+
+
+# --- Secret handling ----------------------------------------------------
+
+
+def test_a_token_echoed_back_by_the_provider_is_redacted(monkeypatch, meta_whatsapp):
+    """Meta quotes a malformed token verbatim; it must not reach the log."""
+    monkeypatch.setattr(
+        messaging.httpx,
+        "post",
+        lambda url, **kw: FakeResponse(
+            400, {"error": {"message": "Malformed access token token-abc"}}
+        ),
+    )
+
+    result = messaging.send_otp("+919876543210", "123456")
+
+    assert result.delivered is False
+    assert "token-abc" not in result.error
+    assert "...-abc" in result.error
+
+
+def test_redaction_leaves_ordinary_provider_errors_intact():
+    assert messaging.redact_secrets("Template not found") == "Template not found"
